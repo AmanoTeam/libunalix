@@ -1,0 +1,83 @@
+name: Build and test
+
+on:
+  push:
+    branches:
+        - '**'
+    paths:
+        - '**.yml'
+        - '**.cpp'
+        - '**.hpp'
+        - '**bearssl'
+        - 'CMakeLists.txt'
+  pull_request:
+    branches:
+        - '**'
+    paths:
+        - '**.yml'
+        - '**.cpp'
+        - '**.hpp'
+        - '**bearssl'
+        - 'CMakeLists.txt'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        target:
+          - os: linux
+            triple: x86_64-linux-musl
+          - os: macosx
+            triple: x86_64-apple-darwin14
+          - os: windows
+            triple: x86_64-w64-mingw32
+        include:
+          - target:
+              os: linux
+            builder: ubuntu-18.04
+          - target:
+              os: macosx
+            builder: macos-10.15
+          - target:
+              os: windows
+            builder: windows-2019
+
+    name: '${{ matrix.target.triple }}'
+    runs-on: ${{ matrix.builder }}
+    steps:
+    - uses: actions/checkout@main
+      with:
+        submodules: true
+    - name: Setup CMake build
+      env:
+        OUTPUT_DIRECTORY: ${{ matrix.target.triple }}
+        OUTPUT_FILE: ${{ matrix.target.triple }}.tar.xz
+      run: |
+        echo "OUTPUT_DIRECTORY=${OUTPUT_DIRECTORY}" >> "${GITHUB_ENV}"
+        echo "OUTPUT_FILE=${OUTPUT_FILE}" >> "${GITHUB_ENV}"
+        
+        if [ '${{ runner.os }}' == 'Windows' ]; then
+			cmake -G 'MinGW Makefiles'
+		fi
+        
+        cmake -DCMAKE_INSTALL_PREFIX=${{ env.OUTPUT_DIRECTORY }} -DCMAKE_BUILD_TYPE=Release -DUNALIX_BUILD_TESTING=ON -DUNALIX_BUILD_JNI=OFF .
+      shell: bash
+    - name: Build with CMake
+      run: cmake --build .
+    - name: Run test suite
+      run: make test
+    - name: Create tarball
+      run: |
+        cmake --install .
+        
+        if [ '${{ runner.os }}' == 'Windows' ]; then
+            7z a -ttar -so ${OUTPUT_FILE} ${OUTPUT_DIRECTORY}/* | 7z a -txz -mx9 -si ${OUTPUT_FILE}
+        else
+            tar -cf - ${OUTPUT_DIRECTORY}/* | xz - -9 -T 0 -e -z -k > ${OUTPUT_FILE}
+        fi
+      shell: bash
+    - name: Upload tarball
+      uses: actions/upload-artifact@main
+      with:
+        name: ${{ matrix.target.triple }}
+        path: ${{ env.OUTPUT_FILE }}

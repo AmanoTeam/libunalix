@@ -1,0 +1,114 @@
+.TH unalixc 1
+.SH NAME
+unalixc \- Remove tracking fields from URLs
+.SH SYNOPSIS
+.B unalixc
+[options / URLs]
+.SH DESCRIPTION
+.B unalixc
+is a command-line tool that can be used to remove tracking fields from URLs and optionally resolve shortened links.
+.SH OPTIONS
+.TP
+.BR "-u, --url <url>"
+Specify a URL to remove tracking fields from.
+
+This option can be specified multiple times.
+.TP
+.BR --unshort
+Unshort URLs.
+
+This will send an HTTP request to all specified URLs and follow any 3xx redirects.
+.TP
+.BR "-l, --launch-with-browser"
+Open URLs with user's default browser.
+
+Under Windows, 
+.I ShellExecute
+is used. Under Mac OS X the 
+.I open
+command is used. Under Unix, it is checked if 
+.I xdg-open
+exists and used if it does. Otherwise the environment variable
+.I BROWSER
+is used to determine the default browser to use.
+.TP
+.BR --strict-errors
+Fail and exit on the first detected error.
+
+Only takes effect when used in combination with
+.I --unshort
+.
+.SH URL filtering
+All the options listed here directly changes the way Unalix behaves when processing the ClearURLs rules catalog.
+
+Read the specification at
+.I https://docs.clearurls.xyz/latest/specs/rules
+for more info.
+.TP
+.BR --skip-blocked
+Ignore patterns when
+.I <completeProvider>
+is true.
+.TP
+.BR --ignore-rules
+Ignore
+.I <rules>
+patterns.
+.TP
+.BR --ignore-raw
+Ignore
+.I <rawRules>
+patterns.
+.TP
+.BR --ignore-referral
+Ignore
+.I <referralMarketing>
+patterns.
+.TP
+.BR --ignore-exceptions
+Ignore
+.I <exceptions>
+patterns.
+.TP
+.BR --ignore-redirections
+Ignore
+.I <redirections>
+patterns.
+.SH HTTP settings
+.TP
+.BR "--timeout <seconds>"
+Maximum time in seconds that you allow unalix's socket operations to take.
+.TP
+.BR "--max-redirs <num>"
+Set maximum number of redirections to follow.
+.TP
+.BR "--user-agent <name>"
+Specify the User-Agent string to send to the HTTP server.
+
+Pass "none" to not send the header at all.
+.SH DNS settings
+.TP
+.BR "--dns-server <uri>"
+Set the DNS server to be used instead of the system default.
+
+Unalix supports DoH, DoT and the plain text formats.
+
+.BR Examples:
+.nf
+unalixc --dns-server=tls://one.one.one.one
+unalixc --dns-server=https://cloudflare-dns.com/dns-query
+unalixc --dns-server=udp://1.0.0.1  
+unalixc --dns-server=tcp://1.0.0.1
+.fi
+.SH Proxy settings
+.TP
+.BR "--proxy <uri>"
+Use the specified proxy.
+
+Only SOCKS5 is supported for now.
+.TP
+.BR "--proxy-user <username>"
+Specify the user name to use for proxy authentication.
+.TP
+.BR "--proxy-pass <password>"
+Specify the password to use for proxy authentication.

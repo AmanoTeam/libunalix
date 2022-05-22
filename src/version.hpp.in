@@ -1,0 +1,2 @@
+#define Unalix_VERSION_MAJOR @Unalix_VERSION_MAJOR@
+#define Unalix_VERSION_MINOR @Unalix_VERSION_MINOR@
