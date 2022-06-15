@@ -19,7 +19,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(
 			src
 			submodules/bearssl/src
-			submodules/bearssl/inc)
+			submodules/bearssl/inc
+			submodules/jsoncpp/src/lib_json)
 
 add_library(
 			bearssl
@@ -320,6 +321,13 @@ add_library(
 			submodules/bearssl/src/x509/x509_minimal_full.c)
 
 add_library(
+			jsoncpp
+			SHARED
+			submodules/jsoncpp/src/lib_json/json_reader.cpp
+			submodules/jsoncpp/src/lib_json/json_value.cpp
+			submodules/jsoncpp/src/lib_json/json_writer.cpp)
+
+add_library(
 			unalix
 			SHARED
 			src/clean_url.cpp
@@ -329,7 +337,11 @@ add_library(
 			src/ssl.cpp
 			src/unshort_url.cpp
 			src/uri.cpp
-			src/utils.cpp)
+			src/utils.cpp
+			src/http_request.cpp
+			src/http_response.cpp
+			src/http_utils.cpp
+			src/sha256.cpp)
 
 if (UNALIX_BUILD_JNI)
 	target_sources(unalix PRIVATE src/unalix_jni.cpp)
@@ -339,7 +351,8 @@ add_executable(unalixc src/cli.cpp)
 
 target_link_libraries(
 			unalix
-			bearssl)
+			bearssl
+			jsoncpp)
 
 if (WIN32)
 	target_link_libraries(
@@ -369,7 +382,12 @@ endif()
 install(TARGETS bearssl
 			RUNTIME DESTINATION bin
 			LIBRARY DESTINATION lib
-			ARCHIVE DESTINATION lib/unalix)
+			ARCHIVE DESTINATION lib/bearssl)
+
+install(TARGETS jsoncpp
+			RUNTIME DESTINATION bin
+			LIBRARY DESTINATION lib
+			ARCHIVE DESTINATION lib/jsoncpp)
 
 install(TARGETS unalix
 			RUNTIME DESTINATION bin

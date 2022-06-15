@@ -2,50 +2,44 @@
 #include <algorithm>
 
 #include "uri.hpp"
+#include "utils.hpp"
 #include "socket.hpp"
 
-// Getters
 const std::string URI::get_scheme() const {
-	return this -> scheme;
+	return this->scheme;
 }
 
 const std::string URI::get_host() const {
-	return this -> host;
+	return this->host;
 }
 
 const std::string URI::get_ipv6_host() const {
-	const std::string hostname = this -> get_host();
+	const std::string hostname = this->get_host();
 	return hostname.substr(1, hostname.size() - 2);
 }
 
 const int URI::get_port() const {
-	return this -> port;
+	return this->port;
 }
 
 const std::string URI::get_path() const {
-	return this -> path;
+	return this->path;
 }
 
 const std::string URI::get_query() const {
-	return this -> query;
+	return this->query;
 }
 
 const std::string URI::get_fragment() const {
-	return this -> fragment;
+	return this->fragment;
 }
 
 const bool URI::is_ipv4() const {
-	struct sockaddr_in addr;
-	const int rc = inet_pton(AF_INET, (this -> get_host()).c_str(), &addr.sin_addr);
-	
-	return (rc == 1);
+	return ::is_ipv4(this->get_host());
 }
 
 const bool URI::is_ipv6() const {
-	struct sockaddr_in6 addr;
-	const int rc = inet_pton(AF_INET6, (this -> get_ipv6_host()).c_str(), &addr.sin6_addr);
-	
-	return (rc == 1);
+	return ::is_ipv6(this->get_ipv6_host());
 }
 
 const std::string URI::to_string() const {
@@ -138,27 +132,26 @@ URI URI::from_string(const std::string &str) {
 
 }
 
-// Setters
 void URI::set_scheme(const std::string value) {
-	this -> scheme = value;
+	this->scheme = value;
 }
 
 void URI::set_host(const std::string value) {
-	this -> host = value;
+	this->host = value;
 }
 
 void URI::set_port(const int value) {
-	this -> port = value;
+	this->port = value;
 }
 
 void URI::set_path(const std::string value) {
-	this -> path = value;
+	this->path = value;
 }
 
 void URI::set_query(const std::string value) {
-	this -> query = value;
+	this->query = value;
 }
 
 void URI::set_fragment(const std::string value) {
-	this -> fragment = value;
+	this->fragment = value;
 }

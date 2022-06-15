@@ -47,3 +47,5 @@ const ssize_t send_udp_data(
 	const struct sockaddr *src_addr,
 	const socklen_t addrlen
 );
+
+#pragma once

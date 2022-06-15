@@ -8,6 +8,8 @@ RFC 7858 - Specification for DNS over Transport Layer Security (TLS)
 #include <sstream>
 #include <iomanip>
 #include <vector>
+#include <iostream>
+#include <cstdlib>
 
 #if defined(__unix__) || __APPLE__
 	#include <unistd.h>
@@ -15,52 +17,80 @@ RFC 7858 - Specification for DNS over Transport Layer Security (TLS)
 	#include <io.h>
 #endif
 
+#include "http_request.hpp"
 #include "dns.hpp"
 #include "uri.hpp"
 #include "ssl.hpp"
+#include "utils.hpp"
 #include "exceptions.hpp"
 #include "socket.hpp"
 
-const std::string get_address(
-	const std::string hostname,
-	int *family
-) {
-	
-	struct addrinfo hints = {};
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	
-	struct addrinfo *res = {};
-	
-	int rc;
-	
-	rc = getaddrinfo(hostname.c_str(), "0", &hints, &res);
-		
-	if (rc != 0) {
-		GAIError e;
-		e.set_message(gai_strerror(rc));
-		
-		throw(e);
+static constexpr int MIN_PACKET_SIZE = 20;
+static constexpr int MAX_PACKET_SIZE = 512;
+
+static constexpr int HTTPS_CONNECTION_PORT = 443;
+static constexpr int TLS_CONNECTION_PORT = 853;
+static constexpr int PLAIN_CONNECTION_PORT = 53;
+
+static constexpr int IPV4_ADDRESS_SIZE = 0x04;
+static constexpr int IPV6_ADDRESS_SIZE = 0x10;
+
+static constexpr QType QTYPES[] = {
+	A,
+	AAAA
+};
+
+enum Specification {
+	DNS_OVER_HTTPS,
+	DNS_OVER_TLS,
+	DNS_PLAIN_UDP,
+	DNS_PLAIN_TCP,
+};
+
+const Specification get_specification(const std::string protocol) {
+	if (protocol == "https") {
+		return DNS_OVER_HTTPS;
 	}
 	
-	*family = res -> ai_family;
-	
-	char host[NI_MAXHOST];
-	rc = getnameinfo(res -> ai_addr, res -> ai_addrlen, host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
-	
-	freeaddrinfo(res);
-	
-	if (rc != 0) {
-		GAIError e;
-		e.set_message(gai_strerror(rc));
-		
-		throw(e);
+	if (protocol == "tls") {
+		return DNS_OVER_TLS;
 	}
 	
-	return std::string(host);
+	if (protocol == "udp") {
+		return DNS_PLAIN_UDP;
+	}
+	
+	if (protocol == "tcp") {
+		return DNS_PLAIN_TCP;
+	}
+	
+	throw UnsupportedProtocolError("Unrecognized URI or unsupported protocol");
 }
 
-const std::vector<char> encode_query(
+const int get_socket_type(const Specification specification) {
+	switch (specification) {
+		case DNS_OVER_HTTPS:
+		case DNS_OVER_TLS:
+		case DNS_PLAIN_TCP:
+			return SOCK_STREAM;
+		case DNS_PLAIN_UDP:
+			return SOCK_DGRAM;
+	}
+}
+
+const int get_port(const Specification specification) {
+	switch (specification) {
+		case DNS_OVER_HTTPS:
+			return HTTPS_CONNECTION_PORT;
+		case DNS_OVER_TLS:
+			return TLS_CONNECTION_PORT;
+		case DNS_PLAIN_UDP:
+		case DNS_PLAIN_TCP:
+			return PLAIN_CONNECTION_PORT;
+	}
+}
+
+const std::vector<char> encode_plain_query(
 	const std::string name,
 	const QType qtype
 ) {
@@ -75,7 +105,7 @@ const std::vector<char> encode_query(
 	std::string domain = name + ".";
 	
 	// Question section
-	std::vector<char> data;
+	std::vector<char> data = {};
 	
 	for (const char ch : domain) {
 		if (ch == '.') {
@@ -92,251 +122,274 @@ const std::vector<char> encode_query(
 	
 	const int buffer_size = buffer.size();
 	
-	if (buffer_size < 20) {
-		ValueError e;
-		e.set_message("DNS packet size too small");
-		throw(e);
+	if (buffer_size < MIN_PACKET_SIZE) {
+		throw ValueError("DNS packet size too small");
 	}
 	
-	if (buffer_size > 512) {
-		ValueError e;
-		e.set_message("DNS packet size too big");
-		throw(e);
+	if (buffer_size > MAX_PACKET_SIZE) {
+		throw ValueError("DNS packet size too big");
 	}
 	
 	return buffer;
 }
 
 const std::vector<char> encode_doh_query(
-	const std::string name,
+	const std::string domain,
 	const QType qtype,
 	const std::string server
 ) {
+	std::vector<char> data = encode_plain_query(domain, qtype);
 	
-	std::vector<char> buffer = encode_query(name, qtype);
+	HTTPRequest request = HTTPRequest(server);
+	request.set_http_method(POST);
+	request.set_http_version(HTTP10);
 	
-	URI uri = URI::from_string(server);
+	request.add_header("Accept", "application/dns-udpwireformat");
+	request.add_header("Accept-Encoding", "identity");
+	request.add_header("Connection", "close");
+	request.add_header("Content-Type", "application/dns-udpwireformat");
+	request.add_header("Content-Length", std::to_string(data.size()));
 	
-	const int port = (uri.get_port() == 0) ? DEFAULT_DOH_PORT : uri.get_port();
-	const std::string hostname = (port == 443) ? uri.get_host() : uri.get_host() + ":" + std::to_string(port);
+	request.set_body(data);
 	
-	if (uri.get_path() == "") {
-		uri.set_path("/");
-	}
-	
-	const std::string path = (uri.get_query() == "") ? uri.get_path() : uri.get_path() + uri.get_query();
-	
-	const std::string headers = (
-		"POST " + path + " HTTP/1.0\r\n" +
-		"Host: " + hostname + "\r\n" +
-		"Accept: application/dns-udpwireformat\r\n" +
-		"Accept-Encoding: identity\r\n" +
-		"Connection: close\r\n" +
-		"Content-Type: application/dns-udpwireformat\r\n" +
-		"Content-Length: " + std::to_string(buffer.size()) + "\r\n\r\n"
-	);
-	
-	buffer.insert(buffer.begin(), headers.begin(), headers.end());
-	
-	return buffer;
+	return request.get_request();
 }
 
 const std::vector<char> encode_tcp_query(
 	const std::string name,
 	const QType qtype
 ) {
-	std::vector<char> buffer = encode_query(name, qtype);
+	std::vector<char> buffer = encode_plain_query(name, qtype);
 	const int buffer_size = buffer.size();
 	
 	buffer.insert(buffer.begin(), {0x00, (char) buffer_size});
 	
 	return buffer;
 }
-	
-const std::string dns_query(
+
+const std::vector<char> encode_query(
 	const std::string name,
 	const QType qtype,
-	const int timeout,
-	const std::string server
+	const Specification specification,
+	const std::string server = NULL
+) {
+	switch (specification) {
+		case DNS_OVER_HTTPS:
+			return encode_doh_query(name, qtype, server);
+		case DNS_PLAIN_TCP:
+		case DNS_OVER_TLS:
+			return encode_tcp_query(name, qtype);
+		case DNS_PLAIN_UDP:
+			return encode_plain_query(name, qtype);
+	}
+}
+
+const DNSResponse get_address(const std::string domain, const int port) {
+	
+	struct addrinfo hints = {};
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	
+	struct addrinfo* res;
+	
+	int rc = getaddrinfo(domain.c_str(), std::to_string(port).c_str(), &hints, &res);
+	
+	if (rc != 0) {
+		throw GAIError(gai_strerror(rc));
+	}
+	
+	char host[NI_MAXHOST];
+	rc = getnameinfo(res->ai_addr, res->ai_addrlen, host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+	
+	if (rc != 0) {
+		throw GAIError(gai_strerror(rc));
+	}
+	
+	const QType qtype =  res->ai_addr->sa_family == AF_INET ? A : AAAA;
+	const std::string address = std::string(host);
+	
+	const DNSResponse answer = DNSResponse(
+		qtype,
+		address,
+		port
+	);
+	
+	freeaddrinfo(res);
+	
+	return answer;
+}
+
+const DNSResponse dns_query(
+	const std::string domain,
+	const int port,
+	const std::string dns_server,
+	const int timeout
 ) {
 	
-	DNSSpecification spec;
-	
-	int socket_type;
-	
-	URI uri = URI::from_string(server);
-	
-	if (uri.get_scheme() == "https") {
-		spec = DNS_SPEC_DOH;
-		socket_type = SOCK_STREAM;
-	} else if (uri.get_scheme() == "tls") {
-		spec = DNS_SPEC_DOT;
-		socket_type = SOCK_STREAM;
-	} else if (uri.get_scheme() == "udp") {
-		spec = DNS_SPEC_WIREFORMAT_UDP;
-		socket_type = SOCK_DGRAM;
-	} else if (uri.get_scheme() == "tcp") {
-		spec = DNS_SPEC_WIREFORMAT_TCP;
-		socket_type = SOCK_STREAM;
-	} else {
-		UnsupportedProtocolError e;
-		e.set_message("Unrecognized URI or unsupported protocol");
+	if (is_ipv4(domain)) {
+		const DNSResponse answer = DNSResponse(
+			A,
+			domain,
+			port
+		);
 		
-		throw(e);
+		return answer;
+	} else if (is_ipv6(domain)) {
+		const DNSResponse answer = DNSResponse(
+			AAAA,
+			domain,
+			port
+		);
+		
+		return answer;
+	} else if (dns_server.empty()) {
+		// Fallback using the system DNS resolver
+		return get_address(domain, port);
 	}
 	
-	// Encode raw DNS query
-	std::vector<char> query;
+	const URI uri = URI::from_string(dns_server);
 	
-	switch (spec) {
-		case DNS_SPEC_DOH:
-			query = encode_doh_query(name, qtype, server);
-			break;
-		case DNS_SPEC_WIREFORMAT_TCP:
-		case DNS_SPEC_DOT:
-			query = encode_tcp_query(name, qtype);
-			break;
-		case DNS_SPEC_WIREFORMAT_UDP:
-			query = encode_query(name, qtype);
-			break;
-	}
+	// Get current DNS implementation
+	const Specification specification = get_specification(uri.get_scheme());
 	
-	const char* buffer = query.data();
-	const int buffer_size = query.size();
+	const int server_port = uri.get_port() == 0 ? get_port(specification) : uri.get_port();
 	
-	// Get address of the DNS server
-	int port = uri.get_port();
-	
-	if (port == 0) {
-		switch (spec) {
-			case DNS_SPEC_DOH:
-				port = DEFAULT_DOH_PORT;
-				break;
-			case DNS_SPEC_DOT:
-				port = DEFAULT_DOT_PORT;
-				break;
-			case DNS_SPEC_WIREFORMAT_UDP:
-			case DNS_SPEC_WIREFORMAT_TCP:
-				port = DEFAULT_WIREFORMAT_PORT;
-				break;
-		}
-	}
-	
-	std::string addr;
-	int addr_family;
+	DNSResponse server_address = DNSResponse();
 	
 	if (uri.is_ipv4()) {
-		addr = uri.get_host();
-		addr_family = AF_INET;
+		server_address.set_qtype(A);
+		server_address.set_address(uri.get_host());
+		server_address.set_port(server_port);
 	} else if (uri.is_ipv6()) {
-		addr = uri.get_ipv6_host();
-		addr_family = AF_INET6;
+		server_address.set_qtype(AAAA);
+		server_address.set_address(uri.get_ipv6_host());
+		server_address.set_port(server_port);
 	} else {
-		addr = get_address(uri.get_host(), &addr_family);
+		const DNSResponse answer = get_address(
+			uri.get_host(),
+			server_port
+		);
+		
+		server_address.set_qtype(answer.get_qtype());
+		server_address.set_address(answer.get_address());
+		server_address.set_port(answer.get_port());
 	}
 	
-	struct sockaddr * sck_addr;
-	socklen_t sck_addr_size;
+	const struct sockaddr* sock_addr = server_address.get_sockaddr();
+	const int sock_addr_size = server_address.get_sockaddr_size();
 	
-	if (addr_family == AF_INET) {
-		struct sockaddr_in addr_in;
-		addr_in.sin_family = addr_family;
-		addr_in.sin_port = htons(port);
-		inet_pton(addr_family, addr.c_str(), &addr_in.sin_addr);
+	const int socket_type = get_socket_type(specification);
+	const int addr_family = server_address.get_qtype() == A ? AF_INET : AF_INET6;
+	
+	for (const QType qtype : QTYPES) {
+		const std::vector<char> query = encode_query(domain, qtype, specification, dns_server);
 		
-		sck_addr = (struct sockaddr*) &addr_in;
-		sck_addr_size = sizeof(addr_in);
-	} else {
-		struct sockaddr_in6 addr_in;
-		addr_in.sin6_family = addr_family;
-		addr_in.sin6_port = htons(port);
-		inet_pton(addr_family, addr.c_str(), &addr_in.sin6_addr);
+		const char* buffer = query.data();
+		const int buffer_size = query.size();
 		
-		sck_addr = (struct sockaddr*) &addr_in;
-		sck_addr_size = sizeof(addr_in);
-	}
-	
-	// Send query
-	char response[1024];
-	size_t response_size;
-	
-	int fd = create_socket(addr_family, socket_type, IPPROTO_IP, timeout);
-	
-	if (socket_type == SOCK_STREAM) {
-		connect_socket(fd, sck_addr, sck_addr_size);
+		// Send DNS query
+		char response[1024];
+		size_t response_size;
 		
-		if (spec == DNS_SPEC_DOH || spec == DNS_SPEC_DOT) {
-			response_size = send_encrypted_data(fd, uri.get_host().c_str(), buffer, buffer_size, response, sizeof(response));
+		int fd = create_socket(addr_family, socket_type, IPPROTO_IP, timeout);
+		
+		if (socket_type == SOCK_STREAM) {
+			connect_socket(fd, sock_addr, sock_addr_size);
+			
+			if (specification == DNS_OVER_HTTPS || specification == DNS_OVER_TLS) {
+				response_size = send_encrypted_data(
+					fd,
+					uri.get_host().c_str(),
+					buffer,
+					buffer_size,
+					response,
+					sizeof(response)
+				);
+			} else {
+				response_size = send_tcp_data(
+					fd,
+					buffer,
+					buffer_size,
+					response,
+					sizeof(response)
+				);
+			}
 		} else {
-			response_size = send_tcp_data(fd, buffer, buffer_size, response, sizeof(response));
+			response_size = send_udp_data(
+				fd,
+				buffer,
+				buffer_size,
+				response,
+				sizeof(response),
+				sock_addr,
+				sock_addr_size
+			);
 		}
-	} else {
-		response_size = send_udp_data(fd, buffer, buffer_size, response, sizeof(response), sck_addr, sck_addr_size);
-	}
-	
-	close(fd);
-	
-	// Parse query
-	unsigned int rcode[2];
-	
-	for (int index = 0; index < response_size; index++) {
-		if (response[index] == (char) 0xAA && response[index + 1] == (char) 0xAA) {
-			rcode[0] = response[index + 2];
-			rcode[1] = response[index + 3];
-			break;
-		}
-	}
-	
-	if (!(rcode[0] == 0x81 && rcode[1] == 0x80)) {
-		DNSError e;
-		e.set_message("Domain doesn't exists");
 		
-		throw(e);
+		close(fd);
+		
+		// Parse DNS response
+		unsigned int rcode[2];
+		
+		for (int index = 0; index < response_size; index++) {
+			if (response[index] == (char) 0xAA && response[index + 1] == (char) 0xAA) {
+				rcode[0] = response[index + 2];
+				rcode[1] = response[index + 3];
+				break;
+			}
+		}
+		
+		if (!(rcode[0] == 0x81 && rcode[1] == 0x80)) {
+			throw DNSError("This domain does not exists");
+		}
+		
+		std::ostringstream address;
+		
+		switch (qtype) {
+			case A:
+				{
+					const int rdlength = (int) response[response_size - 5];
+					
+					if (rdlength != IPV4_ADDRESS_SIZE) {
+						continue;
+					}
+				}
+				
+				address << (int) response[response_size - 4] << '.' << (int) response[response_size - 3] << '.' << (int) response[response_size - 2] << '.' << (int) response[response_size - 1];
+				
+				break;
+			case AAAA:
+				{
+					const int rdlength = (int) response[response_size - (IPV6_ADDRESS_SIZE + 1)];
+					
+					if (rdlength != IPV6_ADDRESS_SIZE) {
+						continue;
+					}
+				}
+				
+				const int address_start = response_size - 16;
+				
+				for (int index = address_start; index < response_size; index += 2) {
+					if (index != address_start) {
+						address << ':';
+					}
+					
+					address << std::hex << std::setw(2) << std::setfill('0') << (int) response[index];
+					address << std::hex << std::setw(2) << std::setfill('0') << (int) response[index + 1];
+				}
+				
+				break;
+		}
+		
+		const DNSResponse answer = DNSResponse(
+			qtype,
+			address.str(),
+			port
+		);
+		
+		return answer;
 	}
 	
-	std::ostringstream address;
+	throw DNSError("There are no addresses associated with this domain");
 	
-	switch (qtype) {
-		case A:
-			{
-				const char rdlength = response[response_size - 5];
-				
-				if (rdlength != 0x04) {
-					DNSError e;
-					e.set_message("No address found");
-					
-					throw(e);
-				}
-			}
-			
-			address << (int) response[response_size - 4] << '.' << (int) response[response_size - 3] << '.' << (int) response[response_size - 2] << '.' << (int) response[response_size - 1];
-			
-			break;
-		case AAAA:
-			{
-				const char rdlength = response[response_size - 17];
-				
-				if (rdlength != 0x10) {
-					DNSError e;
-					e.set_message("No address found");
-					
-					throw(e);
-				}
-			}
-			
-			const int address_start = response_size - 16;
-			
-			for (int index = address_start; index < response_size; index += 2) {
-				if (index != address_start) {
-					address << ':';
-				}
-				
-				address << std::hex << std::setw(2) << std::setfill('0') << (unsigned int) response[index];
-				address << std::hex << std::setw(2) << std::setfill('0') << (unsigned int) response[index + 1];
-			}
-			
-			break;
-	}
-	
-	return address.str();
 }

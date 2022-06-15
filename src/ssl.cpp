@@ -59,7 +59,6 @@ const int send_encrypted_data(
 	void *dst,
 	const size_t dst_size
 ) {
-	
 	br_ssl_client_context sc;
 	br_x509_minimal_context xc;
 	unsigned char iobuf[BR_SSL_BUFSIZE_BIDI];
@@ -79,11 +78,7 @@ const int send_encrypted_data(
 	
 	if (rc != 0) {
 		close(fd);
-		
-		SSLError e;
-		e.set_message("ssl error " + std::to_string(rc));
-		
-		throw(e);
+		throw SSLError("ssl error " + std::to_string(rc));
 	}
 	
 	return size;

@@ -19,10 +19,7 @@ const int create_socket(
 	int fd = socket(domain, type, protocol);
 	
 	if (fd < 0) {
-		SocketError e;
-		e.set_message(strerror(errno));
-		
-		throw(e);
+		throw SocketError(strerror(errno));
 	}
 	
 	#ifdef _WIN32
@@ -41,10 +38,7 @@ const int create_socket(
 	
 	if (rc < 0) {
 		close(fd);
-		
-		SocketError e;
-		e.set_message(std::string("setsockopt: ") + std::string(strerror(errno)));
-		throw(e);
+		throw SocketError("setsockopt: " + std::string(strerror(errno)));
 	}
 	
 	#ifdef _WIN32
@@ -55,10 +49,7 @@ const int create_socket(
 	
 	if (rc < 0) {
 		close(fd);
-		
-		SocketError e;
-		e.set_message(std::string("setsockopt: ") + std::string(strerror(errno)));
-		throw(e);
+		throw SocketError("setsockopt: " + std::string(strerror(errno)));
 	}
 	
 	return fd;
@@ -74,11 +65,7 @@ const void connect_socket(
 	
 	if (rc < 0) {
 		close(fd);
-	
-		ConnectError e;
-		e.set_message(strerror(errno));
-		
-		throw(e);
+		throw ConnectError(strerror(errno));
 	}
 }
 
@@ -100,11 +87,7 @@ const ssize_t send_tcp_data(
 	
 	if (size != src_size) {
 		close(fd);
-	
-		SendError e;
-		e.set_message(strerror(errno));
-		
-		throw(e);
+		throw SendError(strerror(errno));
 	}
 	
 	#ifdef _WIN32
@@ -116,22 +99,10 @@ const ssize_t send_tcp_data(
 	switch (size) {
 		case -1:
 			close(fd);
-			
-			{
-				RecvError e;
-				e.set_message(strerror(errno));
-				
-				throw(e);
-			}
+			throw RecvError(strerror(errno));
 		case 0:
 			close(fd);
-			
-			{
-				RecvError e;
-				e.set_message("Server closed connection unexpectedly");
-				
-				throw(e);
-			}
+			throw RecvError("Server closed connection unexpectedly");
 	}
 	
 	return size;
@@ -157,11 +128,7 @@ const ssize_t send_udp_data(
 	
 	if (size != src_size) {
 		close(fd);
-	
-		SendError e;
-		e.set_message(strerror(errno));
-		
-		throw(e);
+		throw SendError(strerror(errno));
 	}
 	
 	#ifdef _WIN32
@@ -173,22 +140,10 @@ const ssize_t send_udp_data(
 	switch (size) {
 		case -1:
 			close(fd);
-			
-			{
-				RecvError e;
-				e.set_message(strerror(errno));
-				
-				throw(e);
-			}
+			throw RecvError(strerror(errno));
 		case 0:
 			close(fd);
-			
-			{
-				RecvError e;
-				e.set_message("Server closed connection unexpectedly");
-				
-				throw(e);
-			}
+			throw RecvError("Server closed connection unexpectedly");
 	}
 	
 	return size;

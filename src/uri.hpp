@@ -10,6 +10,10 @@ struct URI {
 		std::string fragment;
 	
 	public:
+		URI() {
+			return;
+		}
+		
 		URI(
 			const std::string scheme,
 			const std::string host,
@@ -62,3 +66,5 @@ struct URI {
 		
 		void set_fragment(const std::string value);
 };
+
+#pragma once

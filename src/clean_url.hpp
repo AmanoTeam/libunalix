@@ -9,3 +9,5 @@ const std::string clean_url(
 	const bool ignore_redirections  = false,
 	const bool skip_blocked = false
 );
+
+#pragma once

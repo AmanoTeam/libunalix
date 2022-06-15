@@ -1,6 +1,7 @@
 #include <string>
 #include <sstream>
 
+#include <arpa/inet.h>
 #include <string.h>
 
 inline unsigned char to_hex(unsigned char ch){
@@ -129,7 +130,7 @@ const std::string strip_query(const std::string &query, const char query_start) 
 	std::ostringstream os;
 
 	for (std::string::size_type index = 0; index < query.size(); index++) {
-		if (strchr(characters, query[index]) && ((query.size() > index + 1 && strchr(characters, query[index + 1]) || index + 1 == query.size()))) {
+		if ((strchr(characters, query[index]) && ((query.size() > index + 1 && strchr(characters, query[index + 1])) || index + 1 == query.size()))) {
 			index++;
 		} else {
 			os << query[index];
@@ -160,4 +161,18 @@ const std::string dirname(const std::string path) {
 	
 	return path.substr(0, position);
 	
+}
+
+const bool is_ipv4(const std::string host) {
+	struct sockaddr_in addr;
+	const int rc = inet_pton(AF_INET, host.c_str(), &addr.sin_addr);
+	
+	return (rc == 1);
+}
+
+const bool is_ipv6(const std::string host) {
+	struct sockaddr_in6 addr;
+	const int rc = inet_pton(AF_INET6, host.c_str(), &addr.sin6_addr);
+	
+	return (rc == 1);
 }

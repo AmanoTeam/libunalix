@@ -60,69 +60,43 @@ const std::string send_proxied_tcp_data(
 	const std::string server,
 	const std::string username,
 	const std::string password,
+	const std::string dns,
 	const int timeout
 ) {
 	
 	const URI uri = URI::from_string(server);
 	
-	std::string addr;
-	int addr_family;
+	DNSResponse dnsr = dns_query(
+		hostname,
+		(uri.get_port() == 0) ? 8081 : uri.get_port(),
+		dns,
+		timeout
+	);
 	
-	if (uri.is_ipv4()) {
-		addr = uri.get_host();
-		addr_family = AF_INET;
-	} else if (uri.is_ipv6()) {
-		addr = uri.get_ipv6_host();
-		addr_family = AF_INET6;
-	} else {
-		addr = get_address(uri.get_host(), &addr_family);
-	}
-	
-	int socks_port = uri.get_port();
-		
-	if (socks_port == 0) {
-		socks_port = 8081;
-	}
-	
-	struct sockaddr* sck_addr;
-	socklen_t sck_addr_size;
-	
-	if (addr_family == AF_INET) {
-		struct sockaddr_in addr_in;
-		addr_in.sin_family = addr_family;
-		addr_in.sin_port = htons(socks_port);
-		inet_pton(addr_family, addr.c_str(), &addr_in.sin_addr);
-		
-		sck_addr = (struct sockaddr*) &addr_in;
-		sck_addr_size = sizeof(addr_in);
-	} else {
-		struct sockaddr_in6 addr_in;
-		addr_in.sin6_family = addr_family;
-		addr_in.sin6_port = htons(socks_port);
-		inet_pton(addr_family, addr.c_str(), &addr_in.sin6_addr);
-		
-		sck_addr = (struct sockaddr*) &addr_in;
-		sck_addr_size = sizeof(addr_in);
-	}
+	const struct sockaddr* sock_addr = dnsr.get_sockaddr();
+	const int sock_addr_size = dnsr.get_sockaddr_size();
+	const int addr_family = dnsr.get_qtype() == A ? AF_INET : AF_INET6;
 	
 	int fd = create_socket(addr_family, SOCK_STREAM, IPPROTO_TCP, timeout);
 	
-	connect_socket(fd, sck_addr, sck_addr_size);
+	connect_socket(fd, sock_addr, sock_addr_size);
 	
 	const char hello[] = {0x05, 0x01, 0x00};
 	char hello_response[2];
 	
-	send_tcp_data(fd, hello, sizeof(hello), hello_response, sizeof(hello_response));
+	send_tcp_data(
+		fd,
+		hello,
+		sizeof(hello),
+		hello_response,
+		sizeof(hello_response)
+	);
 	
 	const char socks_version = hello_response[0];
 	
 	if (socks_version != 0x05) {
 		close(fd);
-		
-		Socks5Error e;
-		e.set_message("Unsupported SOCKS server version");
-		
-		throw(e);
+		throw Socks5Error("Unsupported SOCKS server version");
 	}
 	
 	char reply_status = hello_response[1];
@@ -142,25 +116,23 @@ const std::string send_proxied_tcp_data(
 		authentication.insert(authentication.end(), password.begin(), password.end());
 		
 		char auth[2];
-		send_tcp_data(fd, authentication.data(), authentication.size(), auth, sizeof(auth));
+		send_tcp_data(
+			fd,
+			authentication.data(),
+			authentication.size(),
+			auth,
+			sizeof(auth)
+		);
 		
 		reply_status = auth[1];
 	} else if (reply_status != 0x00) {
 		close(fd);
-		
-		Socks5Error e;
-		e.set_message("Unsupported authentication method");
-		
-		throw(e);
+		throw Socks5Error("Unsupported authentication method");
 	}
 	
 	if (reply_status != 0x00) {
 		close(fd);
-		
-		Socks5Error e;
-		e.set_message(socks5_strerror(reply_status));
-		
-		throw(e);
+		throw Socks5Error(socks5_strerror(reply_status));
 	}
 	
 	/*
@@ -173,17 +145,19 @@ const std::string send_proxied_tcp_data(
 	question.insert(question.end(), {(char) (port >> 8), (char) (port & 0xFF)});
 	
 	char answer[10];
-	send_tcp_data(fd, question.data(), question.size(), answer, sizeof(answer));
+	send_tcp_data(
+		fd,
+		question.data(),
+		question.size(),
+		answer,
+		sizeof(answer)
+	);
 	
 	reply_status = answer[1];
 	
 	if (reply_status != 0x00) {
 		close(fd);
-		
-		Socks5Error e;
-		e.set_message(socks5_strerror(reply_status));
-		
-		throw(e);
+		throw Socks5Error(socks5_strerror(reply_status));
 	}
 	
 	/*
@@ -192,13 +166,25 @@ const std::string send_proxied_tcp_data(
 	char response[1024];
 	
 	if (port == 443) {
-		send_encrypted_data(fd, hostname.c_str(), data.c_str(), data.length(), response, sizeof(response));
+		send_encrypted_data(
+			fd,
+			hostname.c_str(),
+			data.c_str(),
+			data.length(),
+			response,
+			sizeof(response)
+		);
 	} else {
-		send_tcp_data(fd, data.c_str(), data.length(), response, sizeof(response));
+		send_tcp_data(
+			fd,
+			data.c_str(),
+			data.length(),
+			response,
+			sizeof(response)
+		);
 	}
 	
 	close(fd);
 	
 	return std::string(response);
-	
 }
