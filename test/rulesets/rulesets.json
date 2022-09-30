@@ -1,0 +1,22 @@
+{
+  "providers": {
+    "amazon": {
+      "urlPattern": "^https?:\\/\\/example\\.com",
+      "rules": [
+        "exampleRule"
+      ],
+      "rawRules": [
+        "exampleRawRule"
+      ],
+      "referralMarketing": [
+        "exampleReferralMarketing"
+      ],
+      "exceptions": [
+        "^https?:\\/\\/example\\.com\\/exampleException"
+      ],
+      "redirections": [
+        "^https?:\\/\\/example\\.com\\/.*\\?exampleRedirection=([^&]+)"
+      ]
+    }
+  }
+}

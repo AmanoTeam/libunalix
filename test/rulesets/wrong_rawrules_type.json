@@ -1,0 +1,8 @@
+{
+  "providers": {
+    "generic": {
+      "urlPattern": "",
+      "rawRules": 0
+    }
+  }
+}
