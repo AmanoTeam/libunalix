@@ -1,11 +1,5 @@
 #include <stdlib.h>
 
-#if defined(__unix__) || __APPLE__
-	#include <unistd.h>
-#else
-	#include <io.h>
-#endif
-
 #define PCRE2_CODE_UNIT_WIDTH 8
 
 #include <pcre2.h>

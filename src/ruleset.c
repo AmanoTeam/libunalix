@@ -1,11 +1,14 @@
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <jansson.h>
 
 #include "errors.h"
 #include "regex.h"
 #include "ruleset.h"
+#include "http.h"
+#include "utils.h"
 
 static const char URL_PATTERN[] = "urlPattern";
 static const char COMPLETE_PROVIDER[] = "completeProvider";
@@ -304,4 +307,172 @@ int unalix_load_string(const char* const string) {
 
 struct Rulesets get_rulesets(void) {
 	return rulesets;
+}
+
+int update_ruleset(const char* const filename, const char* const url, const char* const sha256_url) {
+	
+	if (file_exists(filename)) {
+		const time_t local_last_modified = get_last_modification_time(filename);
+		
+		if (local_last_modified == 0) {
+			return UNALIXERR_OS_FAILURE;
+		}
+		
+		struct tm time = {0};
+		
+		#ifdef _WIN32
+			if (gmtime_s(&time, &local_last_modified) != 0) {
+				return UNALIXERR_OS_FAILURE;
+			}
+		#else
+			if (gmtime_r(&local_last_modified, &time) == NULL) {
+				return UNALIXERR_OS_FAILURE;
+			}
+		#endif
+		
+		// Convert local time to UTC time
+		const time_t last_modified = mktime(&time);
+		
+		if (last_modified == -1) {
+			return UNALIXERR_OS_FAILURE;
+		}
+		
+		struct HTTPRequest request = {
+			.version = HTTP10,
+			.method = HEAD
+		};
+		
+		int code = 0;
+		
+		code = http_request_set_url(&request, url);
+		
+		if (code != UNALIXERR_SUCCESS) {
+			return code;
+		}
+		
+		code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
+		
+		if (code != UNALIXERR_SUCCESS) {
+			return code;
+		}
+		
+		code = http_headers_add(&request.headers, "Accept", "application/json");
+		
+		if (code != UNALIXERR_SUCCESS) {
+			return code;
+		}
+		
+		char if_modified_since[HTTP_DATE_SIZE + 1];
+		const size_t size = strftime(if_modified_since, sizeof(if_modified_since), HTTP_DATE_FORMAT, &time);
+		
+		if (size != HTTP_DATE_SIZE) {
+			return UNALIXERR_OS_FAILURE;
+		}
+		
+		code = http_headers_add(&request.headers, "If-Modified-Since", if_modified_since);
+		
+		if (code != UNALIXERR_SUCCESS) {
+			return code;
+		}
+		
+		struct Connection connection = {0};
+		struct HTTPResponse response = {0};
+		
+		code = http_request_send(&connection, &request, &response);
+		
+		http_request_free(&request);
+		connection_free(&connection);
+		
+		if (code != UNALIXERR_SUCCESS) {
+			return code;
+		}
+		
+		if (response.status.code == NOT_MODIFIED) {
+			http_response_free(&response);
+			return UNALIXERR_RULESETS_NOT_MODIFIED;
+		}
+		
+		if (response.status.code != OK) {
+			http_response_free(&response);
+			return UNALIXERR_HTTP_BAD_STATUS_CODE;
+		}
+		
+		/*
+		Some server implementations ignores the "If-Modified-Since" header and always returns 200 OK, even if the remote file was not modified since the specified time.
+		But luckily, some of these servers still includes the "Last-Modified" header in the response, so we are able to manually compare both timestamps.
+		*/
+		const struct HTTPHeader* const header = http_headers_get(response.headers, "Last-Modified");
+		
+		if (header != NULL) {
+			struct tm time = {0};
+			
+			if (strptime(header->value, HTTP_DATE_FORMAT, &time) == NULL) {
+				return UNALIXERR_OS_FAILURE;
+			}
+			
+			http_response_free(&response);
+			
+			const time_t remote_last_modified = mktime(&time);
+			
+			if (remote_last_modified == -1) {
+				return UNALIXERR_OS_FAILURE;
+			}
+			
+			// Compare local file's timestamp with remote file's timestamp
+			if (remote_last_modified =< last_modified) {
+				return UNALIXERR_RULESETS_NOT_MODIFIED;
+			}
+		}
+		
+		http_response_free(&response);
+	}
+	
+	struct HTTPRequest request = {
+		.version = HTTP10,
+		.method = GET
+	};
+	
+	int code = 0;
+	
+	code = http_request_set_url(&request, url);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		return code;
+	}
+	
+	code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		return code;
+	}
+	
+	code = http_headers_add(&request.headers, "Accept", "application/json");
+	
+	if (code != UNALIXERR_SUCCESS) {
+		return code;
+	}
+	
+	struct Connection connection = {0};
+	struct HTTPResponse response = {0};
+	
+	code = http_request_send(&connection, &request, &response);
+	
+	http_request_free(&request);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		return code;
+	}
+	
+	if (response.status.code != OK) {
+		connection_free(&connection);
+		http_response_free(&response);
+		return UNALIXERR_HTTP_BAD_STATUS_CODE;
+	}
+		
+		
+}
+
+int main() {
+	update_ruleset("/storage/emulated/0/z.json", "https://rules2.clearurls.xyz/data.minify.json", NULL);
+	puts(HTTP_USER_AGENT);
 }

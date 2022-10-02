@@ -2,6 +2,7 @@
 
 #include "uri.h"
 #include "connection.h"
+#include "version.h"
 
 enum HTTPMethod {
 	GET,
@@ -120,6 +121,16 @@ struct HTTPResponse {
 	struct HTTPHeaders headers;
 	struct HTTPBody body;
 };
+
+static const char HTTP_DATE_FORMAT[] = "%a, %d %b %Y %H:%M:%S GMT";
+static const size_t HTTP_DATE_SIZE = 29;
+
+static const char HTTP_USER_AGENT[] =
+	"libunalix/"
+	UNALIX_VERSION_STRING
+	" (+"
+	UNALIX_HOMEPAGE_URL
+	")";
 
 int http_request_stringify(struct HTTPRequest* obj, char** dst, size_t* dst_size);
 int http_request_set_url(struct HTTPRequest* obj, const char* url);

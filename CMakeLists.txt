@@ -16,6 +16,12 @@ include_directories(
 	src
 	submodules/bearssl/src
 	submodules/bearssl/inc
+	${CMAKE_CURRENT_BINARY_DIR}
+)
+
+configure_file(
+	src/version.h.in
+	version.h
 )
 
 set(CMAKE_C_STANDARD 99)
@@ -386,6 +392,14 @@ target_link_libraries(
 	bearssl
 	pcre2-8-shared
 )
+
+if (WIN32)
+	target_link_libraries(
+		unalix
+		wsock32
+		ws2_32
+	)
+endif()
 
 install(
 	TARGETS unalix
