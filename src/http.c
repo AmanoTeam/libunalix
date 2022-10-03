@@ -29,7 +29,7 @@ static int header_name_safe(const char* const s) {
 	for (size_t index = 0; index < strlen(s); index++) {
 		const char ch = s[index];
 		
-		const int is_safe = (isalnum(ch) || strchr(HEADER_NAME_SAFE_SYMBOLS, ch));
+		const int is_safe = (isalnum(ch) || strchr(HEADER_NAME_SAFE_SYMBOLS, ch) != NULL);
 		
 		if (!is_safe) {
 			return is_safe;
@@ -45,7 +45,7 @@ static int header_value_safe(const char* const s) {
 	for (size_t index = 0; index < strlen(s); index++) {
 		const char ch = s[index];
 		
-		const int is_safe = (isalnum(ch) || strchr(HEADER_VALUE_SAFE_SYMBOLS, ch));
+		const int is_safe = (isalnum(ch) || strchr(HEADER_VALUE_SAFE_SYMBOLS, ch) != NULL);
 		
 		if (!is_safe) {
 			return is_safe;
@@ -745,6 +745,18 @@ void http_response_free(struct HTTPResponse* obj) {
 	
 }
 
+void http_free(
+	struct Connection* connection,
+	struct HTTPRequest* request,
+	struct HTTPResponse* response
+) {
+	
+	connection_free(connection);
+	http_request_free(request);
+	http_response_free(response);
+	
+}
+
 static int find_crlfcrlf(const char* buffer, const size_t buffer_size) {
 	
 	for (size_t index = 0; index < buffer_size; index++) {
@@ -913,8 +925,8 @@ int http_response_read(
 ) {
 	
 	if (file != NULL && response->body.size > 0) {
-		if (fwrite(response->body.content, response->body.size, 1, file) != response->body.size) {
-			return UNALIXERR_IO_FAILURE;
+		if (fwrite(response->body.content, sizeof(*response->body.content), response->body.size, file) != response->body.size) {
+			return UNALIXERR_FILE_CANNOT_WRITE;
 		}
 	}
 	
@@ -926,7 +938,9 @@ int http_response_read(
 			chunk_size = br_sslio_read(&connection->ssl_context.ioc, chunk, sizeof(chunk));
 			
 			if (chunk_size == -1) {
-				if (br_ssl_engine_last_error(&connection->ssl_context.sc.eng) != BR_ERR_IO) {
+				const int code = br_ssl_engine_last_error(&connection->ssl_context.sc.eng);
+				
+				if (!(code == BR_ERR_IO || code == BR_ERR_OK)) {
 					return UNALIXERR_SSL_FAILURE;
 				}
 				
@@ -961,8 +975,8 @@ int http_response_read(
 			response->body.size = size;
 			response->body.content = content;
 		} else {
-			if (fwrite(chunk, (size_t) chunk_size, 1, file) != (size_t) chunk_size) {
-				return UNALIXERR_IO_FAILURE;
+			if (fwrite(chunk, sizeof(*chunk), (size_t) chunk_size, file) != (size_t) chunk_size) {
+				return UNALIXERR_FILE_CANNOT_WRITE;
 			}
 		}
 	}
@@ -1006,7 +1020,6 @@ int http_get_redirect(const struct HTTPRequest request, const struct HTTPRespons
 				strcat(*dst, normalized_path);
 			} else if (*location != *SLASH) { // Relative path
 				char path[strlen(SLASH) * 2 + (request.uri.path == NULL ? 0 : strlen(request.uri.path)) + strlen(header->value) + strlen(location) + 1];
-				
 				strcpy(path, SLASH);
 				
 				if (request.uri.path != NULL) {

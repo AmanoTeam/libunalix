@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <ctype.h>
+#include <errno.h>
 
 #ifdef _WIN32
 	#include <windows.h>
@@ -23,7 +24,7 @@
 		"TEMPDIR"
 	};
 	
-	static const char DEFAULT_TEMPORARY_DIRECTORY[] = "/tmp";
+	static const char DEFAULT_TEMPORARY_DIRECTORY[] = "/tmp/";
 #endif
 
 #include "utils.h"
@@ -50,6 +51,10 @@ size_t intlen(const int value) {
 	
 	return size;
 	
+}
+
+char to_hex(const char ch) {
+	return ch + (ch > 9 ? ('a' - 10) : '0');
 }
 
 int isnumeric(const char* const s) {
@@ -187,7 +192,7 @@ void httpnormpath(const char* const path, char* normalized_path) {
 		if (*ch == *SLASH || *ch == '\0' || query_or_fragment) {
 			const size_t comp_length = ch - comp_start;
 			
-			if (comp_length < 1 || (comp_length == 1 && *ch == *SLASH)) {
+			if (comp_length < 1) {// || (comp_length == 1 && *ch == *SLASH)) {
 				comp_start = ch + 1;
 				continue;
 			}
@@ -277,7 +282,7 @@ time_t get_last_modification_time(const char* const filename) {
 	
 }
 
-char* get_temporary_directory();
+char* get_temporary_directory(void) {
 	/*
 	Returns the temporary directory of the current user for applications to save temporary files in.
 	On Windows, it calls GetTempPathA(). On Posix based platforms, it will check TMPDIR, TEMP, TMP and TEMPDIR environment variables in order.
@@ -306,13 +311,19 @@ char* get_temporary_directory();
 			const char* const value = getenv(name);
 			
 			if (value != NULL) {
-				char* temporary_directory = malloc(strlen(value) + 1);
+				const int has_trailing_slash = *(strchr(value, '\0') - 1) == *SLASH;
+				
+				char* temporary_directory = malloc(strlen(value) + (has_trailing_slash ? 0 : strlen(SLASH)) + 1);
 				
 				if (temporary_directory == NULL) {
 					return temporary_directory;
 				}
 				
-				strcpy(temporary_directory, path);
+				strcpy(temporary_directory, value);
+				
+				if (!has_trailing_slash) {
+					strcat(temporary_directory, SLASH);
+				}
 				
 				return temporary_directory;
 			}
@@ -330,3 +341,104 @@ char* get_temporary_directory();
 	return temporary_directory;
 	
 }
+
+int remove_file(const char* const filename) {
+	/*
+	Removes the file. On Windows, ignores the read-only attribute.
+	*/
+	
+	#ifdef _WIN32
+		return DeleteFile(filename) == 1;
+	#else
+		return unlink(filename) == 0;
+	#endif
+	
+}
+
+int copy_file(const char* const source, const char* const destination) {
+	/*
+	Copies a file from source to destination.
+	*/
+	
+	#ifdef _WIN32
+		return CopyFileA(source, destination, FALSE) == 1;
+	#else
+		// Generic version which works for any platform
+		FILE* sfile = fopen(source, "r");
+		
+		if (sfile == NULL) {
+			return 0;
+		}
+		
+		FILE* dfile = fopen(destination, "wb");
+		
+		if (dfile == NULL) {
+			return 0;
+		}
+		
+		while (1) {
+			char chunk[FILERW_MAX_CHUNK_SIZE];
+			const size_t rsize = fread(chunk, sizeof(*chunk), sizeof(chunk), sfile);
+			
+			if (rsize == 0) {
+				fclose(sfile);
+				fclose(dfile);
+				
+				if (ferror(sfile) != 0) {
+					return 0;
+				}
+				
+				break;
+			}
+			
+			const size_t wsize = fwrite(chunk, sizeof(*chunk), rsize, dfile);
+			
+			if (wsize != rsize) {
+				fclose(sfile);
+				fclose(dfile);
+				
+				return 0;
+			}
+		}
+		
+		return 1;
+	#endif
+
+}
+
+int move_file(const char* const source, const char* const destination) {
+	/*
+	Moves a file from source to destination. Symlinks are not followed: if source is a symlink, it is itself moved, not it's target.
+	If destination already exists, it will be overwritten.
+	*/
+	
+	#ifdef _WIN32
+		return MoveFileExA(source, destination, MOVEFILE_COPY_ALLOWED|MOVEFILE_REPLACE_EXISTING) == 1;
+	#else
+		const int code = rename(source, destination);
+		
+		if (code == 0) {
+			return 1;
+		}
+		
+		if (errno == EXDEV) {
+			const int code = copy_file(source, destination);
+			
+			if (code) {
+				remove_file(source);
+			};
+			
+			return code;
+		}
+		
+		return code;
+	#endif
+	
+}
+/*
+int main() {
+	char a[5000];
+	httpnormpath("/yuuii/_77/89/.", a);
+	puts(a);
+}
+*/

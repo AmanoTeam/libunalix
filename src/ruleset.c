@@ -9,6 +9,7 @@
 #include "ruleset.h"
 #include "http.h"
 #include "utils.h"
+#include "sha256.h"
 
 static const char URL_PATTERN[] = "urlPattern";
 static const char COMPLETE_PROVIDER[] = "completeProvider";
@@ -32,6 +33,8 @@ static const char PREFIX_PROVIDER_IGNORE[] = "ClearURLsTest";
 
 static const char PREFIX_EXTENDED_PATTERN[] = "(?:^|&|\\?)";
 static const char SUFFIX_EXTENDED_PATTERN[] = "(?:=[^&]*)?";
+
+static const char RULESET_TEMPORARY_FILE[] = "ruleset.json";
 
 static int regex_compile(const char* src, pcre2_code** dst) {
 	
@@ -337,31 +340,6 @@ int update_ruleset(const char* const filename, const char* const url, const char
 			return UNALIXERR_OS_FAILURE;
 		}
 		
-		struct HTTPRequest request = {
-			.version = HTTP10,
-			.method = HEAD
-		};
-		
-		int code = 0;
-		
-		code = http_request_set_url(&request, url);
-		
-		if (code != UNALIXERR_SUCCESS) {
-			return code;
-		}
-		
-		code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
-		
-		if (code != UNALIXERR_SUCCESS) {
-			return code;
-		}
-		
-		code = http_headers_add(&request.headers, "Accept", "application/json");
-		
-		if (code != UNALIXERR_SUCCESS) {
-			return code;
-		}
-		
 		char if_modified_since[HTTP_DATE_SIZE + 1];
 		const size_t size = strftime(if_modified_since, sizeof(if_modified_since), HTTP_DATE_FORMAT, &time);
 		
@@ -369,31 +347,54 @@ int update_ruleset(const char* const filename, const char* const url, const char
 			return UNALIXERR_OS_FAILURE;
 		}
 		
-		code = http_headers_add(&request.headers, "If-Modified-Since", if_modified_since);
+		struct Connection connection = {0};
+		struct HTTPRequest request = {.version = HTTP10, .method = HEAD};
+		struct HTTPResponse response = {0};
+		
+		int code = 0;
+		
+		code = http_request_set_url(&request, url);
 		
 		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
 			return code;
 		}
 		
-		struct Connection connection = {0};
-		struct HTTPResponse response = {0};
+		code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
+		
+		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
+			return code;
+		}
+		
+		code = http_headers_add(&request.headers, "Accept", "application/json");
+		
+		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
+			return code;
+		}
+		
+		code = http_headers_add(&request.headers, "If-Modified-Since", if_modified_since);
+		
+		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
+			return code;
+		}
 		
 		code = http_request_send(&connection, &request, &response);
 		
-		http_request_free(&request);
-		connection_free(&connection);
-		
 		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
 			return code;
 		}
 		
 		if (response.status.code == NOT_MODIFIED) {
-			http_response_free(&response);
+			http_free(&connection, &request, &response);
 			return UNALIXERR_RULESETS_NOT_MODIFIED;
 		}
 		
 		if (response.status.code != OK) {
-			http_response_free(&response);
+			http_free(&connection, &request, &response);
 			return UNALIXERR_HTTP_BAD_STATUS_CODE;
 		}
 		
@@ -407,10 +408,11 @@ int update_ruleset(const char* const filename, const char* const url, const char
 			struct tm time = {0};
 			
 			if (strptime(header->value, HTTP_DATE_FORMAT, &time) == NULL) {
+				http_free(&connection, &request, &response);
 				return UNALIXERR_OS_FAILURE;
 			}
 			
-			http_response_free(&response);
+			http_free(&connection, &request, &response);
 			
 			const time_t remote_last_modified = mktime(&time);
 			
@@ -419,60 +421,165 @@ int update_ruleset(const char* const filename, const char* const url, const char
 			}
 			
 			// Compare local file's timestamp with remote file's timestamp
-			if (remote_last_modified =< last_modified) {
+			if (remote_last_modified <= last_modified) {
 				return UNALIXERR_RULESETS_NOT_MODIFIED;
 			}
 		}
 		
-		http_response_free(&response);
+		http_free(&connection, &request, &response);
 	}
 	
-	struct HTTPRequest request = {
-		.version = HTTP10,
-		.method = GET
-	};
+	struct Connection connection = {0};
+	struct HTTPRequest request = {.version = HTTP10, .method = GET};
+	struct HTTPResponse response = {0};
 	
 	int code = 0;
 	
 	code = http_request_set_url(&request, url);
 	
 	if (code != UNALIXERR_SUCCESS) {
+		http_free(&connection, &request, &response);
 		return code;
 	}
 	
 	code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
 	
 	if (code != UNALIXERR_SUCCESS) {
+		http_free(&connection, &request, &response);
 		return code;
 	}
 	
 	code = http_headers_add(&request.headers, "Accept", "application/json");
 	
 	if (code != UNALIXERR_SUCCESS) {
+		http_free(&connection, &request, &response);
 		return code;
 	}
 	
-	struct Connection connection = {0};
-	struct HTTPResponse response = {0};
-	
 	code = http_request_send(&connection, &request, &response);
 	
-	http_request_free(&request);
-	
 	if (code != UNALIXERR_SUCCESS) {
+		http_free(&connection, &request, &response);
 		return code;
 	}
 	
 	if (response.status.code != OK) {
-		connection_free(&connection);
-		http_response_free(&response);
+		http_free(&connection, &request, &response);
 		return UNALIXERR_HTTP_BAD_STATUS_CODE;
 	}
+	
+	char* temporary_directory = get_temporary_directory();
+	
+	char ruleset_file[strlen(temporary_directory) + strlen(RULESET_TEMPORARY_FILE) + 1];
+	strcpy(ruleset_file, temporary_directory);
+	strcat(ruleset_file, RULESET_TEMPORARY_FILE);
+	
+	FILE* file = fopen(ruleset_file, "wb");
+	
+	if (file == NULL) {
+		http_free(&connection, &request, &response);
+		free(temporary_directory);
 		
+		return UNALIXERR_FILE_CANNOT_OPEN;
+	}
+	
+	code = http_response_read(&connection, &request, &response, file);
+	
+	fclose(file);
+	
+	http_free(&connection, &request, &response);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		remove_file(ruleset_file);
+		free(temporary_directory);
 		
+		return code;
+	}
+	
+	if (sha256_url != NULL) {
+		struct Connection connection = {0};
+		struct HTTPRequest request = {.version = HTTP10, .method = GET};
+		struct HTTPResponse response = {0};
+		
+		int code = 0;
+		
+		code = http_request_set_url(&request, sha256_url);
+		
+		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
+			return code;
+		}
+		
+		code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
+		
+		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
+			return code;
+		}
+		
+		code = http_headers_add(&request.headers, "Accept", "text/plain");
+		
+		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
+			return code;
+		}
+		
+		code = http_request_send(&connection, &request, &response);
+		puts("a");
+		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
+			return code;
+		}
+		puts("10");
+		if (response.status.code != OK) {
+			http_free(&connection, &request, &response);
+			return UNALIXERR_HTTP_BAD_STATUS_CODE;
+		}
+		
+		code = http_response_read(&connection, &request, &response, NULL);
+		
+		if (code != UNALIXERR_SUCCESS) {
+			remove_file(ruleset_file);
+			free(temporary_directory);
+			
+			return code;
+		}
+		
+		char lsha256[SHA256_DIGEST_SIZE];
+		puts(ruleset_file);
+		code = sha256_digest(ruleset_file, lsha256);
+		puts(ruleset_file);
+		if (code != UNALIXERR_SUCCESS) {
+			remove_file(ruleset_file);
+			free(temporary_directory);
+			http_free(&connection, &request, &response);
+			return code;
+		}
+		
+		const char* const rsha256 = response.body.content;
+		
+		if (memcmp(lsha256, rsha256, SHA256_DIGEST_SIZE) != 0) {
+			remove_file(ruleset_file);
+			free(temporary_directory);
+			http_free(&connection, &request, &response);
+			
+			return UNALIXERR_RULESETS_MISMATCH_HASH;
+		}
+		
+		http_free(&connection, &request, &response);
+	}
+	puts(ruleset_file);
+	if (!move_file(ruleset_file, filename)) {
+		return UNALIXERR_FILE_CANNOT_MOVE;
+	}
+	
+	return UNALIXERR_SUCCESS;
+	
 }
 
+/*
 int main() {
-	update_ruleset("/storage/emulated/0/z.json", "https://rules2.clearurls.xyz/data.minify.json", NULL);
+	printf("%i\n", update_ruleset("/storage/emulated/0/z.json", "https://rules2.clearurls.xyz/data.minify.json", "https://rules2.clearurls.xyz/rules.minify.hash"));
 	puts(HTTP_USER_AGENT);
 }
+*/

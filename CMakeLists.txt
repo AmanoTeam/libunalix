@@ -354,6 +354,7 @@ add_executable(
 	src/callbacks.c
 	src/address.c
 	src/connection.c
+	src/sha256.c
 )
 
 foreach(target pcre2-8-shared jansson)

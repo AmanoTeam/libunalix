@@ -147,6 +147,8 @@ int http_body_set(struct HTTPBody* obj, const char* buffer, const size_t buffer_
 int http_response_parse(struct HTTPResponse* obj, const char* buffer, const size_t buffer_size);
 void http_response_free(struct HTTPResponse* obj);
 
+void http_free(struct Connection* connection, struct HTTPRequest* request, struct HTTPResponse* response);
+
 int http_get_redirect(const struct HTTPRequest request, const struct HTTPResponse response, char** dst);
 
 static const int HTTP_MAX_REDIRECTS = 20;

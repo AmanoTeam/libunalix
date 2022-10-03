@@ -13,4 +13,5 @@ struct Connection {
 	struct SSLContext ssl_context;
 };
 
+int connection_set_timeout(struct Connection* obj, const int timeout);
 void connection_free(struct Connection* obj);

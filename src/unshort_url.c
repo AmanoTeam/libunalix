@@ -13,7 +13,9 @@ int unshort_url(
 	const int ignore_raw_rules,
 	const int ignore_redirections,
 	const int strip_empty,
-	const int strip_duplicates
+	const int strip_duplicates,
+	const char* const user_agent,
+	const int timeout
 ) {
 
 	int total_redirects = 0;
@@ -50,38 +52,50 @@ int unshort_url(
 		
 		*target_url = url;
 		
-		struct HTTPRequest request = {
-			.version = HTTP10,
-			.method = GET
-		};
-		
-		http_headers_add(&request.headers, "Accept", "*/*");
-		http_headers_add(&request.headers, "Accept-Encoding", "identity");
-		http_headers_add(&request.headers, "Connection", "close");
-		http_request_set_url(&request, url);
-		
 		struct Connection connection = {0};
+		struct HTTPRequest request = {.version = HTTP10, .method = GET};
 		struct HTTPResponse response = {0};
+		
+		code = http_headers_add(&request.headers, "Accept", "*/*");
+		
+		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
+			return code;
+		}
+		
+		if (user_agent == NULL || *user_agent = '\0') {
+			code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
+		} else {
+			code = http_headers_add(&request.headers, "User-Agent", user_agent);
+		}
+		
+		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
+			return code;
+		}
+		
+		code = http_request_set_url(&request, url);
+		
+		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
+			return code;
+		}
 		
 		code = http_request_send(&connection, &request, &response);
 		
-		connection_free(&connection);
-		
 		if (code != UNALIXERR_SUCCESS) {
-			http_request_free(&request);
-			http_response_free(&response);
-			
+			http_free(&connection, &request, &response);
 			return code;
 		}
 		
 		code = http_get_redirect(request, response, &location);
 		
-		http_request_free(&request);
-		http_response_free(&response);
-		
 		if (code != UNALIXERR_SUCCESS) {
+			http_free(&connection, &request, &response);
 			return code;
 		}
+		
+		http_free(&connection, &request, &response);
 		
 		if (location == NULL) {
 			break;
@@ -101,11 +115,10 @@ int unshort_url(
 	return UNALIXERR_SUCCESS;
 	
 }
-/*
+
 int main() {
 	printf("%i\n", unalix_load_file("/storage/emulated/0/z.json"));
 	char* f = NULL;
 	printf("%i\n", unshort_url("http://g.co/yuuii/_77/89", &f, 0,0,0,0,0,0,0));
 	puts(f);
 }
-*/

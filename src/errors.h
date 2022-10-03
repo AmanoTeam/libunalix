@@ -4,7 +4,10 @@
 
 #define UNALIXERR_MEMORY_ALLOCATE_FAILURE -2 /* Failed to allocate memory */
 
-#define UNALIXERR_CANNOT_OPEN_FILE -3 /* Cannot open file for reading */
+#define UNALIXERR_FILE_CANNOT_OPEN -3 /* Cannot open file for read/write */
+#define UNALIXERR_FILE_CANNOT_READ -200 /* Cannot read contents of file */
+#define UNALIXERR_FILE_CANNOT_WRITE -202 /* Cannot write contents to file */
+#define UNALIXERR_FILE_CANNOT_MOVE -201 /* Cannot move file */
 
 #define UNALIXERR_JSON_CANNOT_PARSE -4 /* Cannot parse JSON tree */
 #define UNALIXERR_JSON_MISSING_REQUIRED_KEY -5 /* Missing required key in JSON tree */
@@ -33,6 +36,7 @@
 
 #define UNALIXERR_RULESETS_EMPTY -26
 #define UNALIXERR_RULESETS_NOT_MODIFIED -99
+#define UNALIXERR_RULESETS_MISMATCH_HASH -100
 
 #define UNALIXERR_DNS_BUFFER_SIZE_TOO_SMALL -27
 #define UNALIXERR_DNS_BUFFER_SIZE_TOO_HIGH -28
