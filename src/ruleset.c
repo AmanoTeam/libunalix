@@ -1,4 +1,8 @@
-#define _XOPEN_SOURCE
+#ifdef _WIN32
+	#include <stdio.h>
+#else
+	#define _XOPEN_SOURCE
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -384,9 +388,40 @@ static int check_ruleset_update(
 		if (header != NULL) {
 			struct tm time = {0};
 			
-			if (strptime(header->value, HTTP_DATE_FORMAT, &time) == NULL) {
-				return UNALIXERR_OS_FAILURE;
-			}
+			#ifdef _WIN32
+				char month[4];
+				sscanf(header->value, "%*s, %d %s %d %d:%d:%d GMT", &time.tm_mday, month, &time.tm_year, &time.tm_hour, &time.tm_min, &time.tm_sec);
+				
+				if (strcmp(month, "Jan") == 0) {
+					time.tm_mon = 0;
+				} else if (strcmp(month, "Feb") == 0) {
+					time.tm_mon = 1;
+				} else if (strcmp(month, "Mar") == 0) {
+					time.tm_mon = 2;
+				} else if (strcmp(month, "Apr") == 0) {
+					time.tm_mon = 3;
+				} else if (strcmp(month, "May") == 0) {
+					time.tm_mon = 4;
+				} else if (strcmp(month, "Jun") == 0) {
+					time.tm_mon = 5;
+				} else if (strcmp(month, "Jul") == 0) {
+					time.tm_mon = 6;
+				} else if (strcmp(month, "Aug") == 0) {
+					time.tm_mon = 7;
+				} else if (strcmp(month, "Sep") == 0) {
+					time.tm_mon = 8;
+				} else if (strcmp(month, "Oct") == 0) {
+					time.tm_mon = 9;
+				} else if (strcmp(month, "Nov") == 0) {
+					time.tm_mon = 10;
+				} else if (strcmp(month, "Dec") == 0) {
+					time.tm_mon = 11;
+				}
+			#else
+				if (strptime(header->value, HTTP_DATE_FORMAT, &time) == NULL) {
+					return UNALIXERR_OS_FAILURE;
+				}
+			#endif
 			
 			const time_t remote_last_modified = mktime(&time);
 			
