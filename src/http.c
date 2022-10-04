@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <ctype.h>
+#include <stdio.h>
 
 #ifdef _WIN32
 	#ifdef _WIN32_WINNT
@@ -354,7 +355,7 @@ int http_request_stringify(struct HTTPRequest* obj, char** dst, size_t* dst_size
 	
 	if (obj->body.size > 0) {
 		char value[intlen(obj->body.size) + 1];
-		snprintf(value, sizeof(value), "%i", obj->body.size);
+		snprintf(value, sizeof(value), "%zu", obj->body.size);
 		
 		const int code = http_headers_add(&obj->headers, "Content-Length", value);
 		
