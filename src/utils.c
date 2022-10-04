@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <errno.h>
+#include <stdio.h>
 
 #ifdef _WIN32
 	#include <windows.h>
@@ -16,6 +17,7 @@
 	#include <arpa/inet.h>
 	#include <netdb.h>
 	#include <sys/stat.h>
+	#include <unistd.h>
 	
 	static const char* const ENV_TMP[] = {
 		"TMPDIR",
