@@ -89,7 +89,7 @@ static const char* basename(const char* const path) {
 	const char* last_comp = path;
 	
 	while (1) {
-		char* slash_at = strchr(last_comp, *SLASH);
+		char* slash_at = (char*) strchr(last_comp, *SLASH);
 		
 		if (slash_at == NULL) {
 			break;
@@ -108,7 +108,7 @@ char* normpath(const char* const path) {
 	Normalize path, eliminating double slashes, etc.
 	*/
 	
-	char* normalized_path = malloc(strlen(path) + strlen(SLASH) + 1);
+	char* normalized_path = (char*) malloc(strlen(path) + strlen(SLASH) + 1);
 	*normalized_path = '\0';
 	
 	const char* comp_start = path;
@@ -298,7 +298,7 @@ char* get_temporary_directory(void) {
 			return size;
 		}
 		
-		char* temporary_directory = malloc(size + 1);
+		char* temporary_directory = (char*) malloc(size + 1);
 		
 		if (temporary_directory == NULL) {
 			return temporary_directory;
@@ -315,7 +315,7 @@ char* get_temporary_directory(void) {
 			if (value != NULL) {
 				const int has_trailing_slash = *(strchr(value, '\0') - 1) == *SLASH;
 				
-				char* temporary_directory = malloc(strlen(value) + (has_trailing_slash ? 0 : strlen(SLASH)) + 1);
+				char* temporary_directory = (char*) malloc(strlen(value) + (has_trailing_slash ? 0 : strlen(SLASH)) + 1);
 				
 				if (temporary_directory == NULL) {
 					return temporary_directory;
@@ -332,7 +332,7 @@ char* get_temporary_directory(void) {
 		}
 	#endif
 	
-	char* temporary_directory = malloc(sizeof(DEFAULT_TEMPORARY_DIRECTORY));
+	char* temporary_directory = (char*) malloc(sizeof(DEFAULT_TEMPORARY_DIRECTORY));
 	
 	if (temporary_directory == NULL) {
 		return temporary_directory;

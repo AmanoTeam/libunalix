@@ -211,14 +211,14 @@ int clean_url(
 		struct Parameter* parameters = NULL;
 		
 		if (strip_duplicates) {
-			parameters = malloc(query.size);
+			parameters = (struct Parameter*) malloc(query.size);
 			
 			if (parameters == NULL) {
 				return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
 			}
 		}
 		
-		uri.query = realloc(uri.query, strlen(uri.query) * 3 + 1);
+		uri.query = (char*) realloc(uri.query, strlen(uri.query) * 3 + 1);
 		
 		if (uri.query == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;

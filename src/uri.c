@@ -34,7 +34,7 @@ static int parse_uri(struct URI* obj, const char* uri) {
 		return UNALIXERR_URI_SCHEME_EMPTY;
 	}
 	
-	obj->scheme = malloc(scheme_size + 1);
+	obj->scheme = (char*) malloc(scheme_size + 1);
 	
 	if (obj->scheme == NULL) {
 		return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -78,7 +78,7 @@ static int parse_uri(struct URI* obj, const char* uri) {
 		const size_t username_size = (size_t) (separator - authentication_start);
 		
 		if (username_size > 0) {
-			obj->username = malloc(username_size + 1);
+			obj->username = (char*) malloc(username_size + 1);
 			
 			if (obj->username == NULL) {
 				return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -99,7 +99,7 @@ static int parse_uri(struct URI* obj, const char* uri) {
 		const size_t password_size = (size_t) (authentication_end - separator);
 		
 		if (password_size > 0) {
-			obj->password = malloc(password_size + 1);
+			obj->password = (char*) malloc(password_size + 1);
 			
 			if (obj->password == NULL) {
 				return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -223,7 +223,7 @@ static int parse_uri(struct URI* obj, const char* uri) {
 		}
 	}
 	
-	obj->hostname = malloc(hostname_size + 1);
+	obj->hostname = (char*) malloc(hostname_size + 1);
 	
 	if (obj->hostname == NULL) {
 		return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -289,7 +289,7 @@ static int parse_uri(struct URI* obj, const char* uri) {
 		const size_t fragment_size = (size_t) (uri_end - fragment_start);
 		
 		if (fragment_size > 0) {
-			obj->fragment = malloc(fragment_size + 1);
+			obj->fragment = (char*) malloc(fragment_size + 1);
 			
 			if (obj->fragment == NULL) {
 				return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -310,7 +310,7 @@ static int parse_uri(struct URI* obj, const char* uri) {
 		const size_t query_size = (size_t) ((fragment_start == NULL ? uri_end : fragment_start - strlen(HASHTAG)) - query_start);
 		
 		if (query_size > 0) {
-			obj->query = malloc(query_size + 1);
+			obj->query = (char*) malloc(query_size + 1);
 			
 			if (obj->query == NULL) {
 				return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -331,7 +331,7 @@ static int parse_uri(struct URI* obj, const char* uri) {
 		const size_t path_size = (size_t) ((query_start == NULL ? uri_end : query_start - strlen(QUESTION_MARK)) - path_start);
 		
 		if (path_size > 0) {
-			obj->path = malloc(path_size + 1);
+			obj->path = (char*) malloc(path_size + 1);
 			
 			if (obj->path == NULL) {
 				return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -406,7 +406,7 @@ char* uri_stringify(const struct URI obj) {
 		mem_size += strlen(HASHTAG) + strlen(obj.fragment);
 	}
 	
-	char* uri = malloc(mem_size + 1);
+	char* uri = (char*) malloc(mem_size + 1);
 	memset(uri, '\0', 1);
 	
 	if (obj.scheme != NULL) {

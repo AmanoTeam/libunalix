@@ -168,7 +168,7 @@ static int load_ruleset(json_t* tree, struct Rulesets* rulesets) {
 			
 			struct Rules rules = {
 				.total_items = array_size,
-				.items = malloc(sizeof(pcre2_code*) * array_size)
+				.items = (pcre2_code**) malloc(sizeof(pcre2_code*) * array_size)
 			};
 			
 			if (rules.items == NULL) {
@@ -219,7 +219,7 @@ static int load_ruleset(json_t* tree, struct Rulesets* rulesets) {
 		}
 		
 		const size_t size = rulesets->size + sizeof(ruleset) * 1;
-		struct Ruleset* items = realloc(rulesets->items, size);
+		struct Ruleset* items = (struct Ruleset*) realloc(rulesets->items, size);
 		
 		if (items == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -557,13 +557,13 @@ static int ruleset_update(const char* const filename, const char* const url, con
 int unalix_ruleset_check_update(const char* const filename, const char* const url) {
 	
 	struct HTTPContext context = {
-		.connection = {
-			.timeout = HTTP_TIMEOUT
-		},
 		.request = {
 			.version = HTTP10,
 			.method = HEAD
-		}
+		},
+		.connection = {
+			.timeout = HTTP_TIMEOUT
+		},
 	};
 	
 	const int code = check_ruleset_update(filename, url, &context);
@@ -577,12 +577,12 @@ int unalix_ruleset_check_update(const char* const filename, const char* const ur
 int unalix_ruleset_update(const char* const filename, const char* const url, const char* const sha256_url) {
 	
 	struct HTTPContext context = {
-		.connection = {
-			.timeout = HTTP_TIMEOUT
-		},
 		.request = {
 			.version = HTTP10,
 			.method = GET
+		},
+		.connection = {
+			.timeout = HTTP_TIMEOUT
 		}
 	};
 	

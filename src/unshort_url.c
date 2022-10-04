@@ -53,12 +53,12 @@ int unshort_url(
 		*target_url = url;
 		
 		struct HTTPContext context = {
-			.connection = {
-				.timeout = timeout
-			},
 			.request = {
 				.version = HTTP10,
 				.method = GET
+			},
+			.connection = {
+				.timeout = timeout
 			}
 		};
 		

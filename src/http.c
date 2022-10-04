@@ -266,8 +266,8 @@ static void http_headers_stringify(const struct HTTPHeaders headers, char* dst) 
 static int http_headers_add(struct HTTPHeaders* obj, const char* key, const char* value) {
 	
 	struct HTTPHeader header = {
-		.key = malloc(strlen(key) + 1),
-		.value = malloc(strlen(value) + 1)
+		.key = (char*) malloc(strlen(key) + 1),
+		.value = (char*) malloc(strlen(value) + 1)
 	};
 	
 	if (header.key == NULL || header.value == NULL) {
@@ -278,7 +278,7 @@ static int http_headers_add(struct HTTPHeaders* obj, const char* key, const char
 	strcpy(header.value, value);
 	
 	const size_t size = obj->size + sizeof(struct HTTPHeader) * 1;
-	struct HTTPHeader* items = realloc(obj->items, size);
+	struct HTTPHeader* items = (struct HTTPHeader*) realloc(obj->items, size);
 	
 	if (items == NULL) {
 		return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -330,7 +330,7 @@ const struct HTTPHeader* http_response_get_header(const struct HTTPContext* cont
 
 int http_body_set(struct HTTPBody* obj, const char* buffer, const size_t buffer_size) {
 	
-	obj->content = malloc(buffer_size);
+	obj->content = (char*) malloc(buffer_size);
 	
 	if (obj->content == NULL) {
 		return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -380,13 +380,15 @@ int http_request_stringify(struct HTTPRequest* obj, char** dst, size_t* dst_size
 	const char* const http_version = http_version_stringify(obj->version);
 	
 	char headers[obj->headers.slength + 1];
-	http_headers_stringify(obj->headers, memset(headers, '\0', 1));
+	*headers = '\0';
+	
+	http_headers_stringify(obj->headers, headers);
 	
 	const size_t buffer_size = (
 		strlen(http_method) + strlen(SPACE) + strlen(resource_location) + strlen(SPACE) + strlen(PROTOCOL_NAME) + strlen(SLASH) + strlen(http_version) + strlen(CRLF) +
 		strlen(headers) + strlen(CRLFCRLF) + obj->body.size
 	);
-	char* buffer = malloc(buffer_size);
+	char* buffer = (char*) malloc(buffer_size);
 	
 	if (buffer == NULL) {
 		return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -463,7 +465,7 @@ int http_request_set_uri(struct HTTPContext* context, const struct URI uri) {
 	context->request.uri.has_authentication = uri.has_authentication;
 	
 	if (uri.username != NULL) {
-		context->request.uri.username = malloc(strlen(uri.username) + 1);
+		context->request.uri.username = (char*) malloc(strlen(uri.username) + 1);
 		
 		if (context->request.uri.username == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -473,7 +475,7 @@ int http_request_set_uri(struct HTTPContext* context, const struct URI uri) {
 	}
 	
 	if (uri.password != NULL) {
-		context->request.uri.password = malloc(strlen(uri.password) + 1);
+		context->request.uri.password = (char*) malloc(strlen(uri.password) + 1);
 		
 		if (context->request.uri.password == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -483,7 +485,7 @@ int http_request_set_uri(struct HTTPContext* context, const struct URI uri) {
 	}
 	
 	if (uri.scheme != NULL) {
-		context->request.uri.scheme = malloc(strlen(uri.scheme) + 1);
+		context->request.uri.scheme = (char*) malloc(strlen(uri.scheme) + 1);
 		
 		if (context->request.uri.scheme == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -493,7 +495,7 @@ int http_request_set_uri(struct HTTPContext* context, const struct URI uri) {
 	}
 	
 	if (uri.hostname != NULL) {
-		context->request.uri.hostname = malloc(strlen(uri.hostname) + 1);
+		context->request.uri.hostname = (char*) malloc(strlen(uri.hostname) + 1);
 		
 		if (context->request.uri.hostname == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -505,7 +507,7 @@ int http_request_set_uri(struct HTTPContext* context, const struct URI uri) {
 	context->request.uri.port = uri.port;
 	
 	if (uri.query != NULL) {
-		context->request.uri.query = malloc(strlen(uri.query) + 1);
+		context->request.uri.query = (char*) malloc(strlen(uri.query) + 1);
 		
 		if (context->request.uri.query == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -515,7 +517,7 @@ int http_request_set_uri(struct HTTPContext* context, const struct URI uri) {
 	}
 	
 	if (uri.path != NULL) {
-		context->request.uri.path = malloc(strlen(uri.path) + 1);
+		context->request.uri.path = (char*) malloc(strlen(uri.path) + 1);
 		
 		if (context->request.uri.path == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -525,7 +527,7 @@ int http_request_set_uri(struct HTTPContext* context, const struct URI uri) {
 	}
 	
 	if (uri.fragment != NULL) {
-		context->request.uri.fragment = malloc(strlen(uri.fragment) + 1);
+		context->request.uri.fragment = (char*) malloc(strlen(uri.fragment) + 1);
 		
 		if (context->request.uri.fragment == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -581,8 +583,8 @@ static void http_body_free(struct HTTPBody* obj) {
 
 void http_request_free(struct HTTPRequest* obj) {
 	
-	obj->version = 0;
-	obj->method = 0;
+	obj->version = (enum HTTPVersion) 0;
+	obj->method = (enum HTTPMethod) 0;
 	
 	http_headers_free(&obj->headers);
 	http_body_free(&obj->body);
@@ -596,7 +598,7 @@ void http_response_free(struct HTTPResponse* obj) {
 	obj->status.code = (enum HTTPStatusCode) 0;
 	obj->status.message = NULL;
 	
-	obj->version = 0;
+	obj->version = (enum HTTPVersion) 0;
 	
 	http_headers_free(&obj->headers);
 	http_body_free(&obj->body);
@@ -757,7 +759,7 @@ static int parse_http_response(struct HTTPResponse* obj, const char* buffer, con
 	}
 	
 	if (body_size > 0) {
-		obj->body.content = malloc(body_size);
+		obj->body.content = (char*) malloc(body_size);
 		
 		if (obj->body.content == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -977,7 +979,7 @@ int http_response_read(struct HTTPContext* context, FILE* file) {
 		
 		if (file == NULL) {
 			const size_t size = context->response.body.size + (size_t) chunk_size;
-			char* content = realloc(context->response.body.content, size);
+			char* content = (char*) realloc(context->response.body.content, size);
 			
 			if (content == NULL) {
 				return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -1006,7 +1008,7 @@ int http_get_redirect(const struct HTTPContext* context, char** dst) {
 		const char* const location = location_header->value;
 		
 		if (strncmp(location, HTTP_SCHEME, strlen(HTTP_SCHEME)) == 0 || strncmp(location, HTTPS_SCHEME, strlen(HTTPS_SCHEME)) == 0) {
-			*dst = malloc(strlen(location) + 1);
+			*dst = (char*) malloc(strlen(location) + 1);
 			
 			if (*dst == NULL) {
 				return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -1021,7 +1023,7 @@ int http_get_redirect(const struct HTTPContext* context, char** dst) {
 				char normalized_path[strlen(location) + strlen(SLASH) + 1];
 				httpnormpath(location, normalized_path);
 				
-				*dst = malloc(strlen(context->request.uri.scheme) + strlen(SCHEME_SEPARATOR) + strlen(header->value) + strlen(normalized_path) + 1);
+				*dst = (char*) malloc(strlen(context->request.uri.scheme) + strlen(SCHEME_SEPARATOR) + strlen(header->value) + strlen(normalized_path) + 1);
 				
 				if (*dst == NULL) {
 					return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -1045,7 +1047,7 @@ int http_get_redirect(const struct HTTPContext* context, char** dst) {
 				char normalized_path[strlen(path) + strlen(SLASH) + 1];
 				httpnormpath(path, normalized_path);
 				
-				*dst = malloc(strlen(context->request.uri.scheme) + strlen(SCHEME_SEPARATOR) + strlen(header->value) + strlen(normalized_path) + 1);
+				*dst = (char*) malloc(strlen(context->request.uri.scheme) + strlen(SCHEME_SEPARATOR) + strlen(header->value) + strlen(normalized_path) + 1);
 				
 				if (*dst == NULL) {
 					return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -1058,7 +1060,7 @@ int http_get_redirect(const struct HTTPContext* context, char** dst) {
 			} else if (strncmp(location, "///", 3) == 0 || strncmp(location, "//", 2) == 0) {
 				const char* const start = location + countp(location, strlen(location), '/');
 				
-				*dst = malloc(strlen(context->request.uri.scheme) + strlen(SCHEME_SEPARATOR) + strlen(start) + 1);
+				*dst = (char*) malloc(strlen(context->request.uri.scheme) + strlen(SCHEME_SEPARATOR) + strlen(start) + 1);
 				
 				strcpy(*dst, context->request.uri.scheme);
 				strcat(*dst, SCHEME_SEPARATOR);

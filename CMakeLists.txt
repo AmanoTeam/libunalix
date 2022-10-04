@@ -16,7 +16,7 @@ include_directories(
 	src
 	submodules/bearssl/src
 	submodules/bearssl/inc
-	submodules/jansson/src
+	${CMAKE_CURRENT_BINARY_DIR}/submodules/jansson/include
 	${CMAKE_CURRENT_BINARY_DIR}
 )
 

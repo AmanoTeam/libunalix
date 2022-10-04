@@ -7,7 +7,6 @@
 #include "errors.h"
 #include "regex.h"
 
-
 int regex_cobmpile(const char* src, pcre2_code** dst) {
 	
 	int error_number = 0;

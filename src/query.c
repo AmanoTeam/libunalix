@@ -8,7 +8,7 @@
 static int put_parameter(struct Query* obj, const struct Parameter parameter) {
 	
 	const size_t size = obj->size + sizeof(struct Parameter) * 1;
-	struct Parameter* parameters = realloc(obj->parameters, size);
+	struct Parameter* parameters = (struct Parameter*) realloc(obj->parameters, size);
 	
 	if (parameters == NULL) {
 		return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -45,7 +45,7 @@ int add_parameter(struct Query* obj, const char* key, const char* value) {
 	const size_t key_size = strlen(key);
 	
 	if (key_size > 0) {
-		parameter.key = malloc(key_size + 1);
+		parameter.key = (char*) malloc(key_size + 1);
 		
 		if (parameter.key == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -57,7 +57,7 @@ int add_parameter(struct Query* obj, const char* key, const char* value) {
 	const size_t value_size = strlen(value);
 	
 	if (value_size > 0) {
-		parameter.value = malloc(value_size + 1);
+		parameter.value = (char*) malloc(value_size + 1);
 		
 		if (parameter.value == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -119,7 +119,7 @@ int query_parse(struct Query* obj, const char* query) {
 		const size_t key_size = (size_t) (separator - param_start);
 		
 		if (key_size > 0) {
-			parameter.key = malloc(key_size + 1);
+			parameter.key = (char*) malloc(key_size + 1);
 			
 			if (parameter.key == NULL) {
 				return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
@@ -136,7 +136,7 @@ int query_parse(struct Query* obj, const char* query) {
 		const size_t value_size = (size_t) (separator == param_end ? 0 : param_end - separator);
 		
 		if (value_size > 0) {
-			parameter.value = malloc(value_size + 1);
+			parameter.value = (char*) malloc(value_size + 1);
 			
 			if (parameter.value == NULL) {
 				return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
