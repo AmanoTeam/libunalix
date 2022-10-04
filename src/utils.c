@@ -6,7 +6,6 @@
 
 #ifdef _WIN32
 	#include <windows.h>
-	#include <winsock2.h>
 	#include <ws2tcpip.h>
 	#include <fileapi.h>
 	#include <math.h>
@@ -295,13 +294,13 @@ char* get_temporary_directory(void) {
 		const DWORD size = GetTempPathA(sizeof(path), path);
 		
 		if (size == 0) {
-			return size;
+			return NULL;
 		}
 		
 		char* temporary_directory = (char*) malloc(size + 1);
 		
 		if (temporary_directory == NULL) {
-			return temporary_directory;
+			return NULL;
 		}
 		
 		strcpy(temporary_directory, path);
@@ -330,17 +329,18 @@ char* get_temporary_directory(void) {
 				return temporary_directory;
 			}
 		}
+		
+		char* temporary_directory = (char*) malloc(sizeof(DEFAULT_TEMPORARY_DIRECTORY));
+		
+		if (temporary_directory == NULL) {
+			return temporary_directory;
+		}
+		
+		memcpy(temporary_directory, DEFAULT_TEMPORARY_DIRECTORY, sizeof(DEFAULT_TEMPORARY_DIRECTORY));
+		
+		return temporary_directory;
 	#endif
 	
-	char* temporary_directory = (char*) malloc(sizeof(DEFAULT_TEMPORARY_DIRECTORY));
-	
-	if (temporary_directory == NULL) {
-		return temporary_directory;
-	}
-	
-	memcpy(temporary_directory, DEFAULT_TEMPORARY_DIRECTORY, sizeof(DEFAULT_TEMPORARY_DIRECTORY));
-	
-	return temporary_directory;
 	
 }
 
