@@ -122,6 +122,12 @@ struct HTTPResponse {
 	struct HTTPBody body;
 };
 
+struct HTTPContext {
+	struct HTTPRequest request;
+	struct HTTPResponse response;
+	struct Connection connection;
+};
+
 static const char HTTP_DATE_FORMAT[] = "%a, %d %b %Y %H:%M:%S GMT";
 static const size_t HTTP_DATE_SIZE = 29;
 
@@ -132,23 +138,19 @@ static const char HTTP_USER_AGENT[] =
 	UNALIX_HOMEPAGE_URL
 	")";
 
-int http_request_stringify(struct HTTPRequest* obj, char** dst, size_t* dst_size);
-int http_request_set_url(struct HTTPRequest* obj, const char* url);
-int http_request_set_uri(struct HTTPRequest* obj, const struct URI uri);
-void http_request_free(struct HTTPRequest* obj);
-
-int http_request_send(struct Connection* connection, struct HTTPRequest* request, struct HTTPResponse* response);
-int http_response_read(struct Connection* connection, struct HTTPRequest* request, struct HTTPResponse* response, FILE* file);
-
-int http_headers_add(struct HTTPHeaders* obj, const char* key, const char* value);
-const struct HTTPHeader* http_headers_get(const struct HTTPHeaders obj, const char* key);
-int http_body_set(struct HTTPBody* obj, const char* buffer, const size_t buffer_size);
-
-int http_response_parse(struct HTTPResponse* obj, const char* buffer, const size_t buffer_size);
-void http_response_free(struct HTTPResponse* obj);
-
-void http_free(struct Connection* connection, struct HTTPRequest* request, struct HTTPResponse* response);
-
-int http_get_redirect(const struct HTTPRequest request, const struct HTTPResponse response, char** dst);
-
 static const int HTTP_MAX_REDIRECTS = 20;
+
+static const int HTTP_TIMEOUT = 8;
+
+int http_request_set_url(struct HTTPContext* context, const char* url);
+int http_request_set_uri(struct HTTPContext* context, const struct URI uri);
+int http_request_add_header(struct HTTPContext* context, const char* key, const char* value);
+int http_request_send(struct HTTPContext* context);
+
+int http_response_read(struct HTTPContext* context, FILE* file);
+const struct HTTPHeader* http_response_get_header(const struct HTTPContext* context, const char* key);
+const struct HTTPBody* http_response_get_body(struct HTTPContext* context);
+const struct HTTPStatus* http_response_get_status(struct HTTPContext* context);
+
+int http_get_redirect(const struct HTTPContext* context, char** dst);
+void http_context_free(struct HTTPContext* context);

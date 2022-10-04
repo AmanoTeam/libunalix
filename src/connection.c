@@ -1,12 +1,22 @@
-#include <bearssl.h>
-
-#if defined(__unix__) || __APPLE__
-	#include <unistd.h>
-#else
+#ifdef _WIN32
+	#ifdef _WIN32_WINNT
+		#undef _WIN32_WINNT
+	#endif
+	
+	#define _WIN32_WINNT 0x0600
+	
+	#include <winsock2.h>
+	#include <ws2tcpip.h>
 	#include <io.h>
+#else
+	#include <netdb.h>
+	#include <unistd.h>
 #endif
 
+#include <bearssl.h>
+
 #include "connection.h"
+#include "errors.h"
 
 void connection_free(struct Connection* obj) {
 	
@@ -26,24 +36,16 @@ int connection_set_timeout(struct Connection* obj, const int timeout) {
 		const struct timeval time = {.tv_sec = timeout};
 	#endif
 	
-	#ifdef _WIN32
-		int rc = setsockopt(obj->fd, SOL_SOCKET, SO_RCVTIMEO, (char*) &time, sizeof(time));
-	#else
-		int rc = setsockopt(obj->fd, SOL_SOCKET, SO_RCVTIMEO, &time, sizeof(time));
-	#endif
+	int code = setsockopt(obj->fd, SOL_SOCKET, SO_RCVTIMEO, (char*) &time, sizeof(time));
 	
-	if (rc < 0) {
-		return UNALIXERR_SOCKET_SET_OPT_ERROR;
+	if (code != 0) {
+		return UNALIXERR_SOCKET_SETOPT_FAILURE;
 	}
 	
-	#ifdef _WIN32
-		rc = setsockopt(obj->fd, SOL_SOCKET, SO_SNDTIMEO, (char*) &time, sizeof(time));
-	#else
-		rc = setsockopt(obj->fd, SOL_SOCKET, SO_SNDTIMEO, &time, sizeof(time));
-	#endif
+	code = setsockopt(obj->fd, SOL_SOCKET, SO_SNDTIMEO, (char*) &time, sizeof(time));
 	
-	if (rc < 0) {
-		return UNALIXERR_SOCKET_SET_OPT_ERROR;
+	if (code != 0) {
+		return UNALIXERR_SOCKET_SETOPT_FAILURE;
 	}
 	
 	return UNALIXERR_SUCCESS;

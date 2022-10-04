@@ -16,7 +16,7 @@
 #define UNALIXERR_PCRE2_COMPILE_PATTERN_FAILURE -7 /* PCRE2 pattern compilation failed */
 
 #define UNALIXERR_URI_SCHEME_INVALID -8 /* URI has an invalid or unrecognized scheme */
-#define UNALIXERR_URI_SCHEME_MISSING -9 /* Scheme is missing in URI */
+#define UNALIXERR_URI_SCHEME_MISSING -9 /* There is no scheme in the URI */
 #define UNALIXERR_URI_SCHEME_SHOULD_STARTS_WITH_LETTER -10 /* URI scheme should starts with a letter */
 #define UNALIXERR_URI_SCHEME_EMPTY -11 /* URI has an empty scheme */
 #define UNALIXERR_URI_SCHEME_CONTAINS_INVALID_CHARACTER -12 /* URI scheme contains invalid character */
@@ -34,9 +34,10 @@
 #define UNALIXERR_URI_IPV6_ADDRESS_TOO_LONG -24
 #define UNALIXERR_URI_IPV6_ADDRESS_INVALID -25
 
-#define UNALIXERR_RULESETS_EMPTY -26
-#define UNALIXERR_RULESETS_NOT_MODIFIED -99
-#define UNALIXERR_RULESETS_MISMATCH_HASH -100
+#define UNALIXERR_RULESETS_EMPTY -26 /* No rulesets have been loaded */
+#define UNALIXERR_RULESETS_NOT_MODIFIED -99 /* The remote file was not modified since the last update */
+#define UNALIXERR_RULESETS_UPDATE_AVAILABLE -101 /* The remote file was modified since the last update */
+#define UNALIXERR_RULESETS_MISMATCH_HASH -100 /* The SHA256 hash of the remote file did not match */
 
 #define UNALIXERR_DNS_BUFFER_SIZE_TOO_SMALL -27
 #define UNALIXERR_DNS_BUFFER_SIZE_TOO_HIGH -28
@@ -46,27 +47,27 @@
 #define UNALIXERR_DNS_MALFORMED_RESPONSE -32
 #define UNALIXERR_DNS_NXDOMAIN -33
 
-#define UNALIXERR_SOCKET_FAILURE -34
-#define UNALIXERR_SOCKET_SETOPT_FAILURE -35
-#define UNALIXERR_SOCKET_SEND_FAILURE -36
-#define UNALIXERR_SOCKET_RECV_FAILURE -37
+#define UNALIXERR_SOCKET_FAILURE -34 /* Connot create socket */
+#define UNALIXERR_SOCKET_SETOPT_FAILURE -35 /* Cannot set option on socket */
+#define UNALIXERR_SOCKET_SEND_FAILURE -36 /* Cannot send data on socket */
+#define UNALIXERR_SOCKET_RECV_FAILURE -37 /* Cannot receive data on socket */
 #define UNALIXERR_SOCKET_CLOSE_FAILURE -38
 #define UNALIXERR_SOCKET_MAX_BUFFER_SIZE_EXCEEDED -39
-#define UNALIXERR_SOCKET_CONNECT_FAILURE -40
+#define UNALIXERR_SOCKET_CONNECT_FAILURE -40 /* Cannot connect to remote address */
 
-#define UNALIXERR_SSL_FAILURE -41
+#define UNALIXERR_SSL_FAILURE -422 /* SSL/TLS connection failure */
 
-#define UNALIXERR_HTTP_UNSUPPORTED_VERSION -42
-#define UNALIXERR_HTTP_MALFORMED_STATUS_CODE -43
-#define UNALIXERR_HTTP_UNKNOWN_STATUS_CODE -44
+#define UNALIXERR_HTTP_UNSUPPORTED_VERSION -42 /* The HTTP server replied using a unsupported protocol version */
+#define UNALIXERR_HTTP_MALFORMED_STATUS_CODE -43 /* Malformed HTTP status code */
+#define UNALIXERR_HTTP_UNKNOWN_STATUS_CODE -44 /* Unknown HTTP status code */
 #define UNALIXERR_HTTP_MALFORMED_HEADER -45
 #define UNALIXERR_HTTP_MISSING_HEADER_NAME -46
 #define UNALIXERR_HTTP_MISSING_HEADER_VALUE -47
-#define UNALIXERR_HTTP_HEADER_CONTAINS_INVALID_CHARACTER -48
-#define UNALIXERR_HTTP_HEADERS_TOO_BIG -49
-#define UNALIXERR_HTTP_HEADERS_INVALID_LOCATION -50
-#define UNALIXERR_HTTP_TOO_MANY_REDIRECTS -51
-#define UNALIXERR_HTTP_BAD_STATUS_CODE -100
+#define UNALIXERR_HTTP_HEADER_CONTAINS_INVALID_CHARACTER -48 /* HTTP header contains invalid character */
+#define UNALIXERR_HTTP_HEADERS_TOO_BIG -49 /* HTTP headers exceeded max allowed size */
+#define UNALIXERR_HTTP_HEADERS_INVALID_LOCATION -50 /* This HTTP redirect points to an invalid location */
+#define UNALIXERR_HTTP_TOO_MANY_REDIRECTS -51 /* Too many HTTP redirects followed */
+#define UNALIXERR_HTTP_BAD_STATUS_CODE -100 /* Got a unexpected HTTP status code */
 
 #define UNALIXERR_IO_FAILURE -52
 

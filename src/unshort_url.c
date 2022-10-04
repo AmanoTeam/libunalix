@@ -52,50 +52,61 @@ int unshort_url(
 		
 		*target_url = url;
 		
-		struct Connection connection = {0};
-		struct HTTPRequest request = {.version = HTTP10, .method = GET};
-		struct HTTPResponse response = {0};
+		struct HTTPContext context = {
+			.connection = {
+				.timeout = timeout
+			},
+			.request = {
+				.version = HTTP10,
+				.method = GET
+			}
+		};
 		
-		code = http_headers_add(&request.headers, "Accept", "*/*");
+		code = http_request_add_header(&context, "Accept", "*/*");
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
+			http_context_free(&context);
+			
 			return code;
 		}
 		
-		if (user_agent == NULL || *user_agent = '\0') {
-			code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
+		if (user_agent == NULL || *user_agent == '\0') {
+			code = http_request_add_header(&context, "User-Agent", HTTP_USER_AGENT);
 		} else {
-			code = http_headers_add(&request.headers, "User-Agent", user_agent);
+			code = http_request_add_header(&context, "User-Agent", user_agent);
 		}
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
+			http_context_free(&context);
+			
 			return code;
 		}
 		
-		code = http_request_set_url(&request, url);
+		code = http_request_set_url(&context, url);
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
+			http_context_free(&context);
+			
 			return code;
 		}
 		
-		code = http_request_send(&connection, &request, &response);
+		code = http_request_send(&context);
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
+			http_context_free(&context);
+			
 			return code;
 		}
 		
-		code = http_get_redirect(request, response, &location);
+		code = http_get_redirect(&context, &location);
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
+			http_context_free(&context);
+			
 			return code;
 		}
 		
-		http_free(&connection, &request, &response);
+		http_context_free(&context);
 		
 		if (location == NULL) {
 			break;
@@ -119,6 +130,6 @@ int unshort_url(
 int main() {
 	printf("%i\n", unalix_load_file("/storage/emulated/0/z.json"));
 	char* f = NULL;
-	printf("%i\n", unshort_url("http://g.co/yuuii/_77/89", &f, 0,0,0,0,0,0,0));
+	printf("%i\n", unshort_url("http://g.co/yuuii/_77/89", &f, 0,0,0,0,0,0,0, "", 0));
 	puts(f);
 }

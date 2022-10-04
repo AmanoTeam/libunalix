@@ -11,6 +11,7 @@ struct SSLContext {
 struct Connection {
 	int fd;
 	struct SSLContext ssl_context;
+	int timeout;
 };
 
 int connection_set_timeout(struct Connection* obj, const int timeout);

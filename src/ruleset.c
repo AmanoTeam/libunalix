@@ -62,12 +62,11 @@ static int regex_compile(const char* src, pcre2_code** dst) {
 
 static struct Rulesets rulesets = {0};
 
-static int load_ruleset(json_t* tree) {
+static int load_ruleset(json_t* tree, struct Rulesets* rulesets) {
 	
 	json_t* providers = json_object_get(tree, PROVIDERS);
 	
 	if (providers == NULL) {
-		puts("a");
 		return UNALIXERR_JSON_MISSING_REQUIRED_KEY;
 	}
 	
@@ -115,7 +114,6 @@ static int load_ruleset(json_t* tree) {
 		obj = json_object_get(value, URL_PATTERN);
 		
 		if (obj == NULL) {
-			puts("z");
 			return UNALIXERR_JSON_MISSING_REQUIRED_KEY;
 		}
 		
@@ -218,27 +216,27 @@ static int load_ruleset(json_t* tree) {
 			}
 		}
 		
-		const size_t size = rulesets.size + sizeof(ruleset) * 1;
-		struct Ruleset* items = realloc(rulesets.items, size);
+		const size_t size = rulesets->size + sizeof(ruleset) * 1;
+		struct Ruleset* items = realloc(rulesets->items, size);
 		
 		if (items == NULL) {
 			return UNALIXERR_MEMORY_ALLOCATE_FAILURE;
 		}
 		
-		rulesets.items = items;
-		rulesets.size = size;
+		rulesets->items = items;
+		rulesets->size = size;
 		
-		rulesets.items[rulesets.offset++] = ruleset;
+		rulesets->items[rulesets->offset++] = ruleset;
 	}
 	
 	return UNALIXERR_SUCCESS;
 	
 }
 
-void unalix_unload_rureturn(void) {
+void rulesets_free(struct Rulesets* rulesets) {
 	
-	for (size_t index = 0; index < rulesets.offset; index++) {
-		struct Ruleset* ruleset = &rulesets.items[index];
+	for (size_t index = 0; index < rulesets->offset; index++) {
+		struct Ruleset* ruleset = &rulesets->items[index];
 		
 		if (ruleset->url_pattern != NULL) {
 			pcre2_code_free(ruleset->url_pattern);
@@ -268,15 +266,15 @@ void unalix_unload_rureturn(void) {
 		}
 	}
 	
-	rulesets.offset = 0;
-	rulesets.size = 0;
+	rulesets->offset = 0;
+	rulesets->size = 0;
 	
-	free(rulesets.items);
-	rulesets.items = NULL;
+	free(rulesets->items);
+	rulesets->items = NULL;
 	
 }
 
-int unalix_load_file(const char* const filename) {
+static int load_file(const char* const filename, struct Rulesets* dst) {
 	
 	json_t* tree = json_load_file(filename, 0, NULL);
 	
@@ -284,23 +282,7 @@ int unalix_load_file(const char* const filename) {
 		return UNALIXERR_JSON_CANNOT_PARSE;
 	}
 	
-	const int code = load_ruleset(tree);
-	
-	json_decref(tree);
-	
-	return code;
-	
-}
-
-int unalix_load_string(const char* const string) {
-	
-	json_t* tree = json_loads(string, 0, NULL);
-	
-	if (tree == NULL) {
-		return UNALIXERR_JSON_CANNOT_PARSE;
-	}
-	
-	const int code = load_ruleset(tree);
+	const int code = load_ruleset(tree, dst);
 	
 	json_decref(tree);
 	
@@ -312,7 +294,11 @@ struct Rulesets get_rulesets(void) {
 	return rulesets;
 }
 
-int update_ruleset(const char* const filename, const char* const url, const char* const sha256_url) {
+static int check_ruleset_update(
+	const char* const filename,
+	const char* const url,
+	struct HTTPContext* context
+) {
 	
 	if (file_exists(filename)) {
 		const time_t local_last_modified = get_last_modification_time(filename);
@@ -347,54 +333,43 @@ int update_ruleset(const char* const filename, const char* const url, const char
 			return UNALIXERR_OS_FAILURE;
 		}
 		
-		struct Connection connection = {0};
-		struct HTTPRequest request = {.version = HTTP10, .method = HEAD};
-		struct HTTPResponse response = {0};
-		
-		int code = 0;
-		
-		code = http_request_set_url(&request, url);
+		int code = http_request_set_url(context, url);
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
 			return code;
 		}
 		
-		code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
+		code = http_request_add_header(context, "User-Agent", HTTP_USER_AGENT);
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
 			return code;
 		}
 		
-		code = http_headers_add(&request.headers, "Accept", "application/json");
+		code = http_request_add_header(context, "Accept", "application/json");
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
 			return code;
 		}
 		
-		code = http_headers_add(&request.headers, "If-Modified-Since", if_modified_since);
+		code = http_request_add_header(context, "If-Modified-Since", if_modified_since);
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
 			return code;
 		}
 		
-		code = http_request_send(&connection, &request, &response);
+		code = http_request_send(context);
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
 			return code;
 		}
 		
-		if (response.status.code == NOT_MODIFIED) {
-			http_free(&connection, &request, &response);
+		const struct HTTPStatus* status = http_response_get_status(context);
+		
+		if (status->code == NOT_MODIFIED) {
 			return UNALIXERR_RULESETS_NOT_MODIFIED;
 		}
 		
-		if (response.status.code != OK) {
-			http_free(&connection, &request, &response);
+		if (status->code != OK) {
 			return UNALIXERR_HTTP_BAD_STATUS_CODE;
 		}
 		
@@ -402,17 +377,14 @@ int update_ruleset(const char* const filename, const char* const url, const char
 		Some server implementations ignores the "If-Modified-Since" header and always returns 200 OK, even if the remote file was not modified since the specified time.
 		But luckily, some of these servers still includes the "Last-Modified" header in the response, so we are able to manually compare both timestamps.
 		*/
-		const struct HTTPHeader* const header = http_headers_get(response.headers, "Last-Modified");
+		const struct HTTPHeader* const header = http_response_get_header(context, "Last-Modified");
 		
 		if (header != NULL) {
 			struct tm time = {0};
 			
 			if (strptime(header->value, HTTP_DATE_FORMAT, &time) == NULL) {
-				http_free(&connection, &request, &response);
 				return UNALIXERR_OS_FAILURE;
 			}
-			
-			http_free(&connection, &request, &response);
 			
 			const time_t remote_last_modified = mktime(&time);
 			
@@ -425,46 +397,41 @@ int update_ruleset(const char* const filename, const char* const url, const char
 				return UNALIXERR_RULESETS_NOT_MODIFIED;
 			}
 		}
-		
-		http_free(&connection, &request, &response);
 	}
 	
-	struct Connection connection = {0};
-	struct HTTPRequest request = {.version = HTTP10, .method = GET};
-	struct HTTPResponse response = {0};
+	return UNALIXERR_RULESETS_UPDATE_AVAILABLE;
 	
-	int code = 0;
+}
+
+static int ruleset_update(const char* const filename, const char* const url, const char* const sha256_url, struct HTTPContext* context) {
 	
-	code = http_request_set_url(&request, url);
+	int code = http_request_set_url(context, url);
 	
 	if (code != UNALIXERR_SUCCESS) {
-		http_free(&connection, &request, &response);
 		return code;
 	}
 	
-	code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
+	code = http_request_add_header(context, "User-Agent", HTTP_USER_AGENT);
 	
 	if (code != UNALIXERR_SUCCESS) {
-		http_free(&connection, &request, &response);
 		return code;
 	}
 	
-	code = http_headers_add(&request.headers, "Accept", "application/json");
+	code = http_request_add_header(context, "Accept", "application/json");
 	
 	if (code != UNALIXERR_SUCCESS) {
-		http_free(&connection, &request, &response);
 		return code;
 	}
 	
-	code = http_request_send(&connection, &request, &response);
+	code = http_request_send(context);
 	
 	if (code != UNALIXERR_SUCCESS) {
-		http_free(&connection, &request, &response);
 		return code;
 	}
 	
-	if (response.status.code != OK) {
-		http_free(&connection, &request, &response);
+	const struct HTTPStatus* status = http_response_get_status(context);
+	
+	if (status->code != OK) {
 		return UNALIXERR_HTTP_BAD_STATUS_CODE;
 	}
 	
@@ -474,107 +441,179 @@ int update_ruleset(const char* const filename, const char* const url, const char
 	strcpy(ruleset_file, temporary_directory);
 	strcat(ruleset_file, RULESET_TEMPORARY_FILE);
 	
+	free(temporary_directory);
+	
 	FILE* file = fopen(ruleset_file, "wb");
 	
 	if (file == NULL) {
-		http_free(&connection, &request, &response);
-		free(temporary_directory);
-		
 		return UNALIXERR_FILE_CANNOT_OPEN;
 	}
 	
-	code = http_response_read(&connection, &request, &response, file);
+	code = http_response_read(context, file);
 	
 	fclose(file);
 	
-	http_free(&connection, &request, &response);
+	http_context_free(context);
 	
 	if (code != UNALIXERR_SUCCESS) {
 		remove_file(ruleset_file);
-		free(temporary_directory);
 		
 		return code;
 	}
 	
 	if (sha256_url != NULL) {
-		struct Connection connection = {0};
-		struct HTTPRequest request = {.version = HTTP10, .method = GET};
-		struct HTTPResponse response = {0};
-		
-		int code = 0;
-		
-		code = http_request_set_url(&request, sha256_url);
+		int code = http_request_set_url(context, sha256_url);
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
 			return code;
 		}
 		
-		code = http_headers_add(&request.headers, "User-Agent", HTTP_USER_AGENT);
+		code = http_request_add_header(context, "User-Agent", HTTP_USER_AGENT);
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
 			return code;
 		}
 		
-		code = http_headers_add(&request.headers, "Accept", "text/plain");
+		code = http_request_add_header(context, "Accept", "text/plain");
 		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
 			return code;
 		}
 		
-		code = http_request_send(&connection, &request, &response);
-		puts("a");
+		code = http_request_send(context);
+		
 		if (code != UNALIXERR_SUCCESS) {
-			http_free(&connection, &request, &response);
 			return code;
 		}
-		puts("10");
-		if (response.status.code != OK) {
-			http_free(&connection, &request, &response);
+		
+		const struct HTTPStatus* status = http_response_get_status(context);
+		
+		if (status->code != OK) {
 			return UNALIXERR_HTTP_BAD_STATUS_CODE;
 		}
 		
-		code = http_response_read(&connection, &request, &response, NULL);
+		code = http_response_read(context, NULL);
 		
 		if (code != UNALIXERR_SUCCESS) {
 			remove_file(ruleset_file);
-			free(temporary_directory);
 			
 			return code;
+		}
+		
+		char rsha256[SHA256_DIGEST_SIZE];
+		const struct HTTPBody* body = http_response_get_body(context);
+		memcpy(rsha256, body->content, body->size);
+		
+		http_context_free(context);
+		
+		// Normalize SHA256 hash, converting uppercase characters to lower ones
+		for (size_t index = 0; index < sizeof(rsha256); index++) {
+			char* ch = &rsha256[index];
+			
+			if (*ch >= 'A' && *ch <= 'F') {
+				*ch = *ch + 32;
+			}
 		}
 		
 		char lsha256[SHA256_DIGEST_SIZE];
-		puts(ruleset_file);
 		code = sha256_digest(ruleset_file, lsha256);
-		puts(ruleset_file);
+		
 		if (code != UNALIXERR_SUCCESS) {
 			remove_file(ruleset_file);
-			free(temporary_directory);
-			http_free(&connection, &request, &response);
+			
 			return code;
 		}
 		
-		const char* const rsha256 = response.body.content;
-		
+		// Compare both hashes to ensure the remote file was not tampered
 		if (memcmp(lsha256, rsha256, SHA256_DIGEST_SIZE) != 0) {
 			remove_file(ruleset_file);
-			free(temporary_directory);
-			http_free(&connection, &request, &response);
 			
 			return UNALIXERR_RULESETS_MISMATCH_HASH;
 		}
-		
-		http_free(&connection, &request, &response);
 	}
-	puts(ruleset_file);
+	
+	// Attempt to load the ruleset manually before moving it to the specified location
+	struct Rulesets rulesets = {0};
+	code = load_file(ruleset_file, &rulesets);
+	
+	rulesets_free(&rulesets);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		remove_file(ruleset_file);
+		
+		return code;
+	}
+	
 	if (!move_file(ruleset_file, filename)) {
 		return UNALIXERR_FILE_CANNOT_MOVE;
 	}
 	
 	return UNALIXERR_SUCCESS;
 	
+}
+
+int unalix_ruleset_check_update(const char* const filename, const char* const url) {
+	
+	struct HTTPContext context = {
+		.connection = {
+			.timeout = HTTP_TIMEOUT
+		},
+		.request = {
+			.version = HTTP10,
+			.method = HEAD
+		}
+	};
+	
+	const int code = check_ruleset_update(filename, url, &context);
+	
+	http_context_free(&context);
+	
+	return code;
+	
+}
+
+int unalix_ruleset_update(const char* const filename, const char* const url, const char* const sha256_url) {
+	
+	struct HTTPContext context = {
+		.connection = {
+			.timeout = HTTP_TIMEOUT
+		},
+		.request = {
+			.version = HTTP10,
+			.method = GET
+		}
+	};
+	
+	const int code = ruleset_update(filename, url, sha256_url, &context);
+	
+	http_context_free(&context);
+	
+	return code;
+	
+}
+
+int unalix_load_file(const char* const filename) {
+	return load_file(filename, &rulesets);
+}
+
+int unalix_load_string(const char* const string) {
+	
+	json_t* tree = json_loads(string, 0, NULL);
+	
+	if (tree == NULL) {
+		return UNALIXERR_JSON_CANNOT_PARSE;
+	}
+	
+	const int code = load_ruleset(tree, &rulesets);
+	
+	json_decref(tree);
+	
+	return code;
+	
+}
+
+void unalix_unload_rulesets(void) {
+	rulesets_free(&rulesets);
 }
 
 /*

@@ -28,7 +28,6 @@
 #endif
 
 #include "utils.h"
-#include "socket.h"
 
 int isipv6(const char* const address) {
 	

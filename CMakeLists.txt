@@ -8,7 +8,7 @@ project(
 	LANGUAGES C
 )
 
-option(UNALIX_BUILD_TESTING "enable testing for Unalix" OFF)
+option(UNALIX_BUILD_TESTING "enable testing for Unalix" ON)
 
 cmake_policy(SET CMP0077 NEW)
 
@@ -36,7 +36,7 @@ set(JANSSON_BUILD_SHARED_LIBS ON CACHE BOOL "")
 # pcre2
 option(PCRE2_SHOW_REPORT OFF)
 
-add_compile_options(-Oz -flto=full -Wall -Wextra -g)
+add_compile_options(-Oz -flto=full -Wall -Wextra)
 
 add_library(
 	bearssl
