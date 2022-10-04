@@ -6,7 +6,6 @@
 
 #ifdef _WIN32
 	#include <windows.h>
-	#include <ws2tcpip.h>
 	#include <fileapi.h>
 	#include <math.h>
 	

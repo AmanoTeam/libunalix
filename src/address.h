@@ -1,4 +1,8 @@
-#include <arpa/inet.h>
+#ifdef _WIN32
+	#include <windows.h>
+#else
+	#include <arpa/inet.h>
+#endif
 
 struct Address {
 	int af;

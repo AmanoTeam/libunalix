@@ -1,6 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
-#include <arpa/inet.h>
+
+#ifdef _WIN32
+	#include <windows.h>
+#else
+	#include <arpa/inet.h>
+#endif
 
 #include "errors.h"
 #include "address.h"
