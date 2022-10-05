@@ -126,10 +126,3 @@ int unalix_unshort_url(
 	return UNALIXERR_SUCCESS;
 	
 }
-
-int main() {
-	printf("%i\n", unalix_load_file("/storage/emulated/0/z.json"));
-	char* f = NULL;
-	printf("%i\n", unshort_url("http://g.co/yuuii/_77/89", &f, 0,0,0,0,0,0,0, "", 0));
-	puts(f);
-}
