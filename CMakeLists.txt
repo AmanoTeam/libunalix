@@ -16,6 +16,7 @@ include_directories(
 	src
 	submodules/bearssl/src
 	submodules/bearssl/inc
+	submodules/pcre2/src
 	${CMAKE_CURRENT_BINARY_DIR}/submodules/jansson/include
 	${CMAKE_CURRENT_BINARY_DIR}
 )
@@ -34,10 +35,7 @@ set(BUILD_SHARED_LIBS ON)
 option(JANSSON_BUILD_DOCS OFF)
 set(JANSSON_BUILD_SHARED_LIBS ON CACHE BOOL "")
 
-# pcre2
-option(PCRE2_SHOW_REPORT OFF)
-
-add_compile_options(-Oz -flto=full -Wall -Wextra)
+add_compile_options(-Oz -flto=full -Wall -Wextra -DHAVE_CONFIG_H -DPCRE2_CODE_UNIT_WIDTH=8)
 
 add_library(
 	bearssl
@@ -339,7 +337,6 @@ add_library(
 )
 
 add_subdirectory(submodules/jansson EXCLUDE_FROM_ALL)
-add_subdirectory(submodules/pcre2 EXCLUDE_FROM_ALL)
 
 add_executable(
 	unalix
@@ -358,7 +355,56 @@ add_executable(
 	src/sha256.c
 )
 
-foreach(target pcre2-8-shared jansson)
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/submodules/pcre2/src/config.h
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	submodules/pcre2/src/config.h.generic
+	submodules/pcre2/src/config.h
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/submodules/pcre2/src/pcre2_chartables.c
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	submodules/pcre2/src/pcre2_chartables.c.dist
+	submodules/pcre2/src/pcre2_chartables.c
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_library(
+	pcre2
+	SHARED
+	submodules/pcre2/src/pcre2_auto_possess.c
+	submodules/pcre2/src/pcre2_compile.c
+	submodules/pcre2/src/pcre2_config.c
+	submodules/pcre2/src/pcre2_context.c
+	submodules/pcre2/src/pcre2_convert.c
+	submodules/pcre2/src/pcre2_dfa_match.c
+	submodules/pcre2/src/pcre2_error.c
+	submodules/pcre2/src/pcre2_extuni.c
+	submodules/pcre2/src/pcre2_find_bracket.c
+	submodules/pcre2/src/pcre2_maketables.c
+	submodules/pcre2/src/pcre2_match.c
+	submodules/pcre2/src/pcre2_match_data.c
+	submodules/pcre2/src/pcre2_newline.c
+	submodules/pcre2/src/pcre2_ord2utf.c
+	submodules/pcre2/src/pcre2_pattern_info.c
+	submodules/pcre2/src/pcre2_script_run.c
+	submodules/pcre2/src/pcre2_serialize.c
+	submodules/pcre2/src/pcre2_string_utils.c
+	submodules/pcre2/src/pcre2_study.c
+	submodules/pcre2/src/pcre2_substitute.c
+	submodules/pcre2/src/pcre2_substring.c
+	submodules/pcre2/src/pcre2_tables.c
+	submodules/pcre2/src/pcre2_ucd.c
+	submodules/pcre2/src/pcre2_ucptables.c
+	submodules/pcre2/src/pcre2_valid_utf.c
+	submodules/pcre2/src/pcre2_xclass.c
+	submodules/pcre2/src/pcre2_chartables.c
+	submodules/pcre2/src/config.h
+)
+
+foreach(target jansson)
 	add_custom_command(
 		TARGET unalix POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -392,7 +438,7 @@ target_link_libraries(
 	unalix
 	jansson
 	bearssl
-	pcre2-8-shared
+	pcre2
 )
 
 if (WIN32)
@@ -410,7 +456,7 @@ install(
 )
 
 install(
-	TARGETS pcre2-8-shared
+	TARGETS pcre2
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
 )
