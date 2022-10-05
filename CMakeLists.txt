@@ -365,6 +365,12 @@ if (UNALIX_ENABLE_JNI)
 		PRIVATE
 		src/unalix_jni.c
 	)
+	
+	set_target_properties(
+		unalix
+		PROPERTIES
+		OUTPUT_NAME unalix_jni
+	)
 endif()
 
 foreach(filename pcre2.h config.h)
@@ -419,14 +425,11 @@ add_library(
 	submodules/pcre2/src/pcre2.h
 )
 
-foreach(target jansson)
-	add_custom_command(
-		TARGET unalix POST_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		$<TARGET_FILE:${target}>
-		$<TARGET_FILE_DIR:unalix>
-	)
-endforeach()
+set_target_properties(
+	jansson
+	PROPERTIES
+	LIBRARY_OUTPUT_DIRECTORY $<TARGET_FILE_DIR:unalix>
+)
 
 if (UNALIX_ENABLE_LTO)
 	set(UNALIX_HAS_LTO OFF)

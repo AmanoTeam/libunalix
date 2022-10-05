@@ -24,7 +24,7 @@ int unalix_unshort_url(
 	char* location = NULL;
 	
 	while (1) {
-		int code = clean_url(
+		int code = unalix_clean_url(
 			location == NULL ? source_url : location,
 			&url,
 			ignore_referral_marketing,
