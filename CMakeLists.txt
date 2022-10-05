@@ -369,7 +369,7 @@ endif()
 
 foreach(filename pcre2.h config.h)
 	add_custom_command(
-		OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/submodules/pcre2/src/pcre2.h
+		OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/submodules/pcre2/src/${filename}.h
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		submodules/pcre2/src/${filename}.generic
 		submodules/pcre2/src/${filename}
