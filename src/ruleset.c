@@ -57,7 +57,7 @@ static int regex_compile(const char* src, pcre2_code** dst) {
 	);
 	
 	if (re == NULL) {
-		return UNALIXERR_PCRE2_COMPILE_PATTERN_FAILURE;
+		return UNALIXERR_REGEX_COMPILE_PATTERN_FAILURE;
 	}
 	
 	*dst = re;
@@ -310,18 +310,18 @@ static int check_ruleset_update(
 		const time_t local_last_modified = get_last_modification_time(filename);
 		
 		if (local_last_modified == 0) {
-			return UNALIXERR_OS_FAILURE;
+			return UNALIXERR_OS_STAT_FAILURE;
 		}
 		
 		struct tm time = {0};
 		
 		#ifdef _WIN32
 			if (gmtime_s(&time, &local_last_modified) != 0) {
-				return UNALIXERR_OS_FAILURE;
+				return UNALIXERR_OS_GMTIME_FAILURE;
 			}
 		#else
 			if (gmtime_r(&local_last_modified, &time) == NULL) {
-				return UNALIXERR_OS_FAILURE;
+				return UNALIXERR_OS_GMTIME_FAILURE;
 			}
 		#endif
 		
@@ -329,14 +329,14 @@ static int check_ruleset_update(
 		const time_t last_modified = mktime(&time);
 		
 		if (last_modified == -1) {
-			return UNALIXERR_OS_FAILURE;
+			return UNALIXERR_OS_MKTIME_FAILURE;
 		}
 		
 		char if_modified_since[HTTP_DATE_SIZE + 1];
 		const size_t size = strftime(if_modified_since, sizeof(if_modified_since), HTTP_DATE_FORMAT, &time);
 		
 		if (size != HTTP_DATE_SIZE) {
-			return UNALIXERR_OS_FAILURE;
+			return UNALIXERR_OS_STRFTIME_FAILURE;
 		}
 		
 		int code = http_request_set_url(context, url);
@@ -390,7 +390,10 @@ static int check_ruleset_update(
 			
 			#ifdef _WIN32
 				char month[4];
-				sscanf(header->value, "%*s, %d %s %d %d:%d:%d GMT", &time.tm_mday, month, &time.tm_year, &time.tm_hour, &time.tm_min, &time.tm_sec);
+				
+				if (sscanf(header->value, "%*s, %d %s %d %d:%d:%d GMT", &time.tm_mday, month, &time.tm_year, &time.tm_hour, &time.tm_min, &time.tm_sec) != 6) {
+					return UNALIXERR_OS_STRPTIME_FAILURE;
+				}
 				
 				if (strcmp(month, "Jan") == 0) {
 					time.tm_mon = 0;
@@ -419,14 +422,14 @@ static int check_ruleset_update(
 				}
 			#else
 				if (strptime(header->value, HTTP_DATE_FORMAT, &time) == NULL) {
-					return UNALIXERR_OS_FAILURE;
+					return UNALIXERR_OS_STRPTIME_FAILURE;
 				}
 			#endif
 			
 			const time_t remote_last_modified = mktime(&time);
 			
 			if (remote_last_modified == -1) {
-				return UNALIXERR_OS_FAILURE;
+				return UNALIXERR_OS_MKTIME_FAILURE;
 			}
 			
 			// Compare local file's timestamp with remote file's timestamp

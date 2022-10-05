@@ -5,7 +5,9 @@
 #include "connection.h"
 #include "version.h"
 
-#undef DELETE
+#ifdef _WIN32
+	#undef DELETE
+#endif
 
 enum HTTPMethod {
 	GET,

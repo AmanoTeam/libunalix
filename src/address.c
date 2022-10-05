@@ -42,6 +42,6 @@ int address_parse(struct Address* obj, const char* sa, const int sa_port) {
 		return UNALIXERR_SUCCESS;
 	}
 	
-	return UNALIXERR_FAILURE;
+	return UNALIXERR_DNS_CANNOT_PARSE_ADDRESS;
 	
 }

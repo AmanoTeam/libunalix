@@ -9,8 +9,11 @@ project(
 )
 
 option(UNALIX_BUILD_TESTING "enable testing for Unalix" ON)
+option(UNALIX_ENABLE_LTO "Turn on compiler Link Time Optimizations" ON)
 
+cmake_policy(SET CMP0069 NEW)
 cmake_policy(SET CMP0077 NEW)
+set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 include_directories(
 	src
@@ -35,7 +38,7 @@ set(BUILD_SHARED_LIBS ON)
 option(JANSSON_BUILD_DOCS OFF)
 set(JANSSON_BUILD_SHARED_LIBS ON CACHE BOOL "")
 
-add_compile_options(-Oz -flto=full -Wall -Wextra -DHAVE_CONFIG_H -DPCRE2_CODE_UNIT_WIDTH=8)
+add_compile_options(-Oz -Wall -Wextra -DHAVE_CONFIG_H -DPCRE2_CODE_UNIT_WIDTH=8)
 
 add_library(
 	bearssl
@@ -421,6 +424,17 @@ foreach(target jansson)
 		$<TARGET_FILE_DIR:unalix>
 	)
 endforeach()
+
+set(UNALIX_HAS_LTO OFF)
+
+if (UNALIX_ENABLE_LTO)
+	include(CheckIPOSupported)
+	check_ipo_supported(RESULT UNALIX_HAS_LTO LANGUAGES C)
+	
+	foreach(target unalix pcre2 jansson)
+		set_property(TARGET ${target} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+	endforeach()
+endif()
 
 # Test suite
 if (UNALIX_BUILD_TESTING)

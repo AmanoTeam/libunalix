@@ -7,7 +7,7 @@
 #include "errors.h"
 #include "regex.h"
 
-int regex_cobmpile(const char* src, pcre2_code** dst) {
+int regex_compile(const char* src, pcre2_code** dst) {
 	
 	int error_number = 0;
 	PCRE2_SIZE error_offset = 0;
@@ -22,7 +22,7 @@ int regex_cobmpile(const char* src, pcre2_code** dst) {
 	);
 	
 	if (re == NULL) {
-		return UNALIXERR_PCRE2_COMPILE_PATTERN_FAILURE;
+		return UNALIXERR_REGEX_COMPILE_PATTERN_FAILURE;
 	}
 	
 	*dst = re;

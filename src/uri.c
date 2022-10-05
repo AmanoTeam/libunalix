@@ -12,10 +12,6 @@ static const char SCHEME_SAFE_SYMBOLS[] = "+.-";
 
 static int parse_uri(struct URI* obj, const char* uri) {
 	
-	if (!uri || *uri == '\0') {
-		return UNALIXERR_FAILURE;
-	}
-	
 	const char* uri_end = strrchr(uri, '\0');
 	
 	/*
