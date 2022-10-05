@@ -356,6 +356,14 @@ add_executable(
 )
 
 add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/submodules/pcre2/src/pcre2.h
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	submodules/pcre2/src/pcre2.h.generic
+	submodules/pcre2/src/pcre2.h
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_custom_command(
 	OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/submodules/pcre2/src/config.h
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 	submodules/pcre2/src/config.h.generic
@@ -402,6 +410,7 @@ add_library(
 	submodules/pcre2/src/pcre2_xclass.c
 	submodules/pcre2/src/pcre2_chartables.c
 	submodules/pcre2/src/config.h
+	submodules/pcre2/src/pcre2.h
 )
 
 foreach(target jansson)
