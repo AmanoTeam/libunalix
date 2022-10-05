@@ -105,7 +105,7 @@ int unalix_clean_url(
 						// Workaround for URLs without scheme (see https://github.com/ClearURLs/Addon/issues/71)
 						prepend_scheme_if_needed(&safe_unquoted_url[0]);
 						
-						const int rc = clean_url(
+						const int rc = unalix_clean_url(
 							safe_unquoted_url,
 							target_url,
 							ignore_referral_marketing,
