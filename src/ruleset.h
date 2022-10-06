@@ -23,7 +23,7 @@ struct Rulesets {
 };
 
 int unalix_ruleset_check_update(const char* const filename, const char* const url);
-int unalix_ruleset_update(const char* const filename, const char* const url, const char* const sha256_url);
+int unalix_ruleset_update(const char* const filename, const char* const url, const char* const sha256_url, const char* const temporary_directory);
 
 int unalix_load_file(const char* const filename);
 int unalix_load_string(const char* const string);

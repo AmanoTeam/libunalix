@@ -12,7 +12,8 @@ JNIEXPORT void JNICALL Java_com_amanoteam_libunalix_LibUnalix_rulesetUpdate(
 	const jobject obj,
 	const jstring filename,
 	const jstring url,
-	const jstring sha256_url
+	const jstring sha256_url,
+	const jstring temporary_directory
 );
 
 JNIEXPORT jstring JNICALL Java_com_amanoteam_libunalix_LibUnalix_cleanUrl(

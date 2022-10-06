@@ -443,7 +443,7 @@ static int check_ruleset_update(
 	
 }
 
-static int ruleset_update(const char* const filename, const char* const url, const char* const sha256_url, struct HTTPContext* context) {
+static int ruleset_update(const char* const filename, const char* const url, const char* const sha256_url, const char* const temporary_directory, struct HTTPContext* context) {
 	
 	int code = http_request_set_url(context, url);
 	
@@ -475,13 +475,19 @@ static int ruleset_update(const char* const filename, const char* const url, con
 		return UNALIXERR_HTTP_BAD_STATUS_CODE;
 	}
 	
-	char* temporary_directory = get_temporary_directory();
+	char* directory = (char*) temporary_directory;
 	
-	char ruleset_file[strlen(temporary_directory) + strlen(RULESET_TEMPORARY_FILE) + 1];
-	strcpy(ruleset_file, temporary_directory);
+	if (directory == NULL) {
+		directory = get_temporary_directory();
+	}
+	
+	char ruleset_file[strlen(directory) + strlen(RULESET_TEMPORARY_FILE) + 1];
+	strcpy(ruleset_file, directory);
 	strcat(ruleset_file, RULESET_TEMPORARY_FILE);
 	
-	free(temporary_directory);
+	if (temporary_directory == NULL) {
+		free(directory);
+	}
 	
 	FILE* file = fopen(ruleset_file, "wb");
 	
@@ -540,8 +546,13 @@ static int ruleset_update(const char* const filename, const char* const url, con
 			return code;
 		}
 		
-		char rsha256[SHA256_DIGEST_SIZE];
 		const struct HTTPBody* body = http_response_get_body(context);
+		
+		if (body->size < SHA256_DIGEST_SIZE) {
+			return UNALIXERR_RULESETS_MISMATCH_HASH;
+		}
+		
+		char rsha256[SHA256_DIGEST_SIZE];
 		memcpy(rsha256, body->content, body->size);
 		
 		http_context_free(context);
@@ -612,7 +623,7 @@ int unalix_ruleset_check_update(const char* const filename, const char* const ur
 	
 }
 
-int unalix_ruleset_update(const char* const filename, const char* const url, const char* const sha256_url) {
+int unalix_ruleset_update(const char* const filename, const char* const url, const char* const sha256_url, const char* const temporary_directory) {
 	
 	struct HTTPContext context = {
 		.request = {
@@ -624,7 +635,7 @@ int unalix_ruleset_update(const char* const filename, const char* const url, con
 		}
 	};
 	
-	const int code = ruleset_update(filename, url, sha256_url, &context);
+	const int code = ruleset_update(filename, url, sha256_url, temporary_directory, &context);
 	
 	http_context_free(&context);
 	

@@ -87,6 +87,7 @@ jboolean Java_com_amanoteam_libunalix_LibUnalix_rulesetCheckUpdate(
 	const jstring filename,
 	const jstring url
 ) {
+	(void) obj;
 	
 	const char* const cfilename = (*env)->GetStringUTFChars(env, filename, NULL);
 	const char* const curl = (*env)->GetStringUTFChars(env, url, NULL);
@@ -122,18 +123,22 @@ void Java_com_amanoteam_libunalix_LibUnalix_rulesetUpdate(
 	const jobject obj,
 	const jstring filename,
 	const jstring url,
-	const jstring sha256_url
+	const jstring sha256_url,
+	const jstring temporary_directory
 ) {
+	(void) obj;
 	
 	const char* const cfilename = (*env)->GetStringUTFChars(env, filename, NULL);
 	const char* const curl = (*env)->GetStringUTFChars(env, url, NULL);
 	const char* const csha256_url = (*env)->GetStringUTFChars(env, sha256_url, NULL);
+	const char* const ctemporary_directory = (*env)->GetStringUTFChars(env, temporary_directory, NULL);
 	
-	const int code = unalix_ruleset_update(cfilename, curl, csha256_url);
+	const int code = unalix_ruleset_update(cfilename, curl, csha256_url, ctemporary_directory);
 	
 	(*env)->ReleaseStringUTFChars(env, filename, cfilename);
 	(*env)->ReleaseStringUTFChars(env, url, curl);
 	(*env)->ReleaseStringUTFChars(env, sha256_url, csha256_url);
+	(*env)->ReleaseStringUTFChars(env, temporary_directory, ctemporary_directory);
 	
 	if (code != UNALIXERR_SUCCESS) {
 		(*env)->ThrowNew(
@@ -160,6 +165,7 @@ jstring Java_com_amanoteam_libunalix_LibUnalix_cleanUrl(
 	const jboolean stripEmpty,
 	const jboolean stripDuplicates
 ) {
+	(void) obj;
 	
 	const char* const curl = (*env)->GetStringUTFChars(env, url, NULL);
 	
@@ -213,6 +219,7 @@ jstring Java_com_amanoteam_libunalix_LibUnalix_unshortUrl(
 	const jstring userAgent,
 	const jint timeout
 ) {
+	(void) obj;
 	
 	const char* const curl = (*env)->GetStringUTFChars(env, url, NULL);
 	const char* const cuserAgent = (*env)->GetStringUTFChars(env, userAgent, NULL);
