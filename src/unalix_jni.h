@@ -43,3 +43,9 @@ JNIEXPORT jstring JNICALL Java_com_amanoteam_libunalix_LibUnalix_unshortUrl(
 	const jstring userAgent,
 	const jint timeout
 );
+
+JNIEXPORT void JNICALL Java_com_amanoteam_libunalix_LibUnalix_loadFile(
+	JNIEnv *env,
+	const jobject obj,
+	const jstring filename
+);

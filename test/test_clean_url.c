@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "clean_url.h"
+#include "unalix.h"
 #include "errors.h"
 #include "ruleset.h"
 
@@ -20,7 +20,7 @@ int main() {
 	int strip_empty = 0;
 	int strip_duplicates = 0;
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		NULL,
 		NULL,
 		ignore_referral_marketing,
@@ -34,42 +34,42 @@ int main() {
 	
 	assert (code == UNALIXERR_RULESETS_EMPTY);
 	
-	code = load_ruleset("./test/rulesets/rulesets.json");
+	code = unalix_load_file("./test/rulesets/rulesets.json");
 	assert (code == UNALIXERR_SUCCESS);
 	
-	code = load_ruleset("./test/rulesets/wrong_urlpattern_type.json");
+	code = unalix_load_file("./test/rulesets/wrong_urlpattern_type.json");
 	assert (code == UNALIXERR_JSON_NON_MATCHING_TYPE);
 	
-	code = load_ruleset("./test/rulesets/wrong_rules_type.json");
+	code = unalix_load_file("./test/rulesets/wrong_rules_type.json");
 	assert (code == UNALIXERR_JSON_NON_MATCHING_TYPE);
 	
-	code = load_ruleset("./test/rulesets/wrong_rawrules_type.json");
+	code = unalix_load_file("./test/rulesets/wrong_rawrules_type.json");
 	assert (code == UNALIXERR_JSON_NON_MATCHING_TYPE);
 	
-	code = load_ruleset("./test/rulesets/wrong_redirections_type.json");
+	code = unalix_load_file("./test/rulesets/wrong_redirections_type.json");
 	assert (code == UNALIXERR_JSON_NON_MATCHING_TYPE);
 	
-	code = load_ruleset("./test/rulesets/wrong_exceptions_type.json");
+	code = unalix_load_file("./test/rulesets/wrong_exceptions_type.json");
 	assert (code == UNALIXERR_JSON_NON_MATCHING_TYPE);
 	
-	code = load_ruleset("./test/rulesets/wrong_referralmarketing_type.json");
+	code = unalix_load_file("./test/rulesets/wrong_referralmarketing_type.json");
 	assert (code == UNALIXERR_JSON_NON_MATCHING_TYPE);
 	
-	code = load_ruleset("./test/rulesets/wrong_providers_type.json");
+	code = unalix_load_file("./test/rulesets/wrong_providers_type.json");
 	assert (code == UNALIXERR_JSON_NON_MATCHING_TYPE);
 	
-	code = load_ruleset("./test/rulesets/missing_providers_key.json");
+	code = unalix_load_file("./test/rulesets/missing_providers_key.json");
 	assert (code == UNALIXERR_JSON_MISSING_REQUIRED_KEY);
 	
-	code = load_ruleset("./test/rulesets/missing_urlpattern_key.json");
+	code = unalix_load_file("./test/rulesets/missing_urlpattern_key.json");
 	assert (code == UNALIXERR_JSON_MISSING_REQUIRED_KEY);
 	
-	code = load_ruleset("./test/rulesets/this_file_does_not_exists.json");
+	code = unalix_load_file("./test/rulesets/this_file_does_not_exists.json");
 	assert (code == UNALIXERR_CANNOT_OPEN_FILE);
 	
 	source_url = "https://example.com/?exampleRule=exampleValue";
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -85,7 +85,7 @@ int main() {
 	assert (strcmp(target_url, "https://example.com/") == 0);
 	free(target_url);
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -103,7 +103,7 @@ int main() {
 	
 	source_url = "https://example.com/?exampleRedirection=https://example.org/";
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -119,7 +119,7 @@ int main() {
 	assert (strcmp(target_url, "https://example.org/") == 0);
 	free(target_url);
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -137,7 +137,7 @@ int main() {
 	
 	source_url = "https://example.com/?exampleRedirection=example.org/";
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -155,7 +155,7 @@ int main() {
 	
 	source_url = "https://example.com/exampleRawRule";
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -171,7 +171,7 @@ int main() {
 	assert (strcmp(target_url, "https://example.com/") == 0);
 	free(target_url);
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -189,7 +189,7 @@ int main() {
 	
 	source_url = "https://example.com/exampleException?exampleRule=exampleValue";
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -205,7 +205,7 @@ int main() {
 	assert (strcmp(target_url, source_url) == 0);
 	free(target_url);
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -223,7 +223,7 @@ int main() {
 	
 	source_url = "https://example.com/?exampleReferralMarketing=exampleValue";
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -239,7 +239,7 @@ int main() {
 	assert (strcmp(target_url, "https://example.com/") == 0);
 	free(target_url);
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		1,
@@ -257,7 +257,7 @@ int main() {
 	
 	source_url = "http://example.com/?p1=&p2=";
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -273,7 +273,7 @@ int main() {
 	assert (strcmp(target_url, source_url) == 0);
 	free(target_url);
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -291,7 +291,7 @@ int main() {
 	
 	source_url = "http://example.com/?a=value&a=value2";
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -307,7 +307,7 @@ int main() {
 	assert (strcmp(target_url, source_url) == 0);
 	free(target_url);
 	
-	code = clean_url(
+	code = unalix_clean_url(
 		source_url,
 		&target_url,
 		ignore_referral_marketing,
@@ -323,7 +323,7 @@ int main() {
 	assert (strcmp(target_url, "http://example.com/?a=value") == 0);
 	free(target_url);
 	
-	unload_rulesets();
+	unalix_unload_rulesets();
 	
 	return 0;
 	

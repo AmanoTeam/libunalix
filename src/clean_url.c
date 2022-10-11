@@ -45,6 +45,10 @@ int unalix_clean_url(
 	const int strip_duplicates
 ) {
 	
+	if (source_url == NULL || *source_url == '\0' || target_url == NULL) {
+		return UNALIXERR_ARG_INVALID;
+	}
+	
 	const struct Rulesets rulesets = get_rulesets();
 	
 	if (rulesets.offset < 1) {

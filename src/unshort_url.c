@@ -17,7 +17,11 @@ int unalix_unshort_url(
 	const char* const user_agent,
 	const int timeout
 ) {
-
+	
+	if (source_url == NULL || *source_url == '\0' || target_url == NULL) {
+		return UNALIXERR_ARG_INVALID;
+	}
+	
 	int total_redirects = 0;
 	
 	char* url = NULL;
@@ -58,7 +62,7 @@ int unalix_unshort_url(
 				.method = GET
 			},
 			.connection = {
-				.timeout = timeout
+				.timeout = (timeout > 0) ? timeout : HTTP_DEFAULT_TIMEOUT
 			}
 		};
 		
@@ -70,11 +74,9 @@ int unalix_unshort_url(
 			return code;
 		}
 		
-		if (user_agent == NULL || *user_agent == '\0') {
-			code = http_request_add_header(&context, "User-Agent", HTTP_USER_AGENT);
-		} else {
-			code = http_request_add_header(&context, "User-Agent", user_agent);
-		}
+		const char* const ua = (user_agent == NULL || *user_agent == '\0') ? HTTP_DEFAULT_USER_AGENT : user_agent;
+		
+		code = http_request_add_header(&context, HTTP_HEADER_USER_AGENT, ua);
 		
 		if (code != UNALIXERR_SUCCESS) {
 			http_context_free(&context);
@@ -115,7 +117,7 @@ int unalix_unshort_url(
 		if (location != NULL) {
 			total_redirects++;
 			
-			if (total_redirects > HTTP_MAX_REDIRECTS) {
+			if (total_redirects > HTTP_DEFAULT_MAX_REDIRECTS) {
 				return UNALIXERR_HTTP_TOO_MANY_REDIRECTS;
 			}
 			

@@ -262,3 +262,57 @@ jstring Java_com_amanoteam_libunalix_LibUnalix_unshortUrl(
 	return NULL;
 	
 }
+
+void Java_com_amanoteam_libunalix_LibUnalix_loadFile(
+	JNIEnv *env,
+	const jobject obj,
+	const jstring filename
+) {
+	
+	(void) obj;
+	
+	const char* const cfilename = (*env)->GetStringUTFChars(env, filename, NULL);
+	
+	const int code = unalix_load_file(cfilename);
+	
+	(*env)->ReleaseStringUTFChars(env, filename, cfilename);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		(*env)->ThrowNew(
+			env,
+			(*env)->FindClass(
+				env,
+				get_exception_class(code)
+			),
+			unalix_strerror(code)
+		);
+	}
+	
+}
+
+void Java_com_amanoteam_libunalix_LibUnalix_loadString(
+	JNIEnv *env,
+	const jobject obj,
+	const jstring string
+) {
+	
+	(void) obj;
+	
+	const char* const cstring = (*env)->GetStringUTFChars(env, string, NULL);
+	
+	const int code = unalix_load_string(cstring);
+	
+	(*env)->ReleaseStringUTFChars(env, string, cstring);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		(*env)->ThrowNew(
+			env,
+			(*env)->FindClass(
+				env,
+				get_exception_class(code)
+			),
+			unalix_strerror(code)
+		);
+	}
+	
+}

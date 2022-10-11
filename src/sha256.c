@@ -22,9 +22,11 @@ int sha256_digest(const char* const filename, char* dst) {
 		const size_t size = fread(chunk, sizeof(*chunk), sizeof(chunk), file);
 		
 		if (size == 0) {
+			const int code = ferror(file);
+			
 			fclose(file);
 			
-			if (ferror(file) != 0) {
+			if (code != 0) {
 				return UNALIXERR_FILE_CANNOT_READ;
 			}
 			

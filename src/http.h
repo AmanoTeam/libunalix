@@ -136,16 +136,22 @@ struct HTTPContext {
 static const char HTTP_DATE_FORMAT[] = "%a, %d %b %Y %H:%M:%S GMT";
 static const size_t HTTP_DATE_SIZE = 29;
 
-static const char HTTP_USER_AGENT[] =
+static const char HTTP_DEFAULT_USER_AGENT[] =
 	"libunalix/"
 	UNALIX_VERSION_STRING
 	" (+"
 	UNALIX_HOMEPAGE_URL
 	")";
 
-static const int HTTP_MAX_REDIRECTS = 20;
+static const int HTTP_DEFAULT_MAX_REDIRECTS = 20;
 
-static const int HTTP_TIMEOUT = 8;
+static const int HTTP_DEFAULT_TIMEOUT = 8;
+
+static const char HTTP_HEADER_ACCEPT[] = "Accept";
+static const char HTTP_HEADER_LOCATION[] = "Location";
+static const char HTTP_HEADER_USER_AGENT[] = "User-Agent";
+static const char HTTP_HEADER_LAST_MODIFIED[] = "Last-Modified";
+static const char HTTP_HEADER_IF_MODIFIED_SINCE[] = "If-Modified-Since";
 
 int http_request_set_url(struct HTTPContext* context, const char* url);
 int http_request_set_uri(struct HTTPContext* context, const struct URI uri);

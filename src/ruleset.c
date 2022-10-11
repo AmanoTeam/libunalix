@@ -27,7 +27,7 @@ static const char REDIRECTIONS[] = "redirections";
 
 static const char PROVIDERS[] = "providers";
 
-static const char* const names[] = {
+static const char* const ARRAY_KEYS[] = {
 	(const char*) RULES,
 	(const char*) RAW_RULES,
 	(const char*) REFERRAL_MARKETING,
@@ -150,8 +150,8 @@ static int load_ruleset(json_t* tree, struct Rulesets* rulesets) {
 		redirections
 		https://docs.clearurls.xyz/latest/specs/rules/#redirections
 		*/
-		for (size_t index = 0; index < sizeof(names) / sizeof(*names); index++) {
-			const char* const name = names[index];
+		for (size_t index = 0; index < sizeof(ARRAY_KEYS) / sizeof(*ARRAY_KEYS); index++) {
+			const char* const name = ARRAY_KEYS[index];
 			const json_t* const obj = json_object_get(value, name);
 			
 			if (obj == NULL || json_typeof(obj) == JSON_NULL) {
@@ -306,136 +306,138 @@ static int check_ruleset_update(
 	struct HTTPContext* context
 ) {
 	
-	if (file_exists(filename)) {
-		const time_t local_last_modified = get_last_modification_time(filename);
-		
-		if (local_last_modified == 0) {
-			return UNALIXERR_OS_STAT_FAILURE;
+	if (!file_exists(filename)) {
+		return UNALIXERR_OS_STAT_FAILURE;
+	}
+	
+	const time_t local_last_modified = get_last_modification_time(filename);
+	
+	if (local_last_modified == 0) {
+		return UNALIXERR_OS_STAT_FAILURE;
+	}
+	
+	struct tm time = {0};
+	
+	#ifdef _WIN32
+		if (gmtime_s(&time, &local_last_modified) != 0) {
+			return UNALIXERR_OS_GMTIME_FAILURE;
 		}
-		
+	#else
+		if (gmtime_r(&local_last_modified, &time) == NULL) {
+			return UNALIXERR_OS_GMTIME_FAILURE;
+		}
+	#endif
+	
+	// Convert local time to UTC time
+	const time_t last_modified = mktime(&time);
+	
+	if (last_modified == -1) {
+		return UNALIXERR_OS_MKTIME_FAILURE;
+	}
+	
+	char if_modified_since[HTTP_DATE_SIZE + 1];
+	const size_t size = strftime(if_modified_since, sizeof(if_modified_since), HTTP_DATE_FORMAT, &time);
+	
+	if (size != HTTP_DATE_SIZE) {
+		return UNALIXERR_OS_STRFTIME_FAILURE;
+	}
+	
+	int code = http_request_set_url(context, url);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		return code;
+	}
+	
+	code = http_request_add_header(context, HTTP_HEADER_USER_AGENT, HTTP_DEFAULT_USER_AGENT);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		return code;
+	}
+	
+	code = http_request_add_header(context, HTTP_HEADER_ACCEPT, "application/json");
+	
+	if (code != UNALIXERR_SUCCESS) {
+		return code;
+	}
+	
+	code = http_request_add_header(context, HTTP_HEADER_IF_MODIFIED_SINCE, if_modified_since);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		return code;
+	}
+	
+	code = http_request_send(context);
+	
+	if (code != UNALIXERR_SUCCESS) {
+		return code;
+	}
+	
+	const struct HTTPStatus* status = http_response_get_status(context);
+	
+	if (status->code == NOT_MODIFIED) {
+		return UNALIXERR_RULESETS_NOT_MODIFIED;
+	}
+	
+	if (status->code != OK) {
+		return UNALIXERR_HTTP_BAD_STATUS_CODE;
+	}
+	
+	/*
+	Some server implementations ignores the "If-Modified-Since" header and always returns 200 OK, even if the remote file was not modified since the specified time.
+	But luckily, some of these servers still includes the "Last-Modified" header in the response, so we are able to manually compare both timestamps.
+	*/
+	const struct HTTPHeader* const header = http_response_get_header(context, HTTP_HEADER_LAST_MODIFIED);
+	
+	if (header != NULL) {
 		struct tm time = {0};
 		
 		#ifdef _WIN32
-			if (gmtime_s(&time, &local_last_modified) != 0) {
-				return UNALIXERR_OS_GMTIME_FAILURE;
+			char month[4];
+			
+			if (sscanf(header->value, "%*s, %d %s %d %d:%d:%d GMT", &time.tm_mday, month, &time.tm_year, &time.tm_hour, &time.tm_min, &time.tm_sec) != 6) {
+				return UNALIXERR_OS_STRPTIME_FAILURE;
+			}
+			
+			if (strcmp(month, "Jan") == 0) {
+				time.tm_mon = 0;
+			} else if (strcmp(month, "Feb") == 0) {
+				time.tm_mon = 1;
+			} else if (strcmp(month, "Mar") == 0) {
+				time.tm_mon = 2;
+			} else if (strcmp(month, "Apr") == 0) {
+				time.tm_mon = 3;
+			} else if (strcmp(month, "May") == 0) {
+				time.tm_mon = 4;
+			} else if (strcmp(month, "Jun") == 0) {
+				time.tm_mon = 5;
+			} else if (strcmp(month, "Jul") == 0) {
+				time.tm_mon = 6;
+			} else if (strcmp(month, "Aug") == 0) {
+				time.tm_mon = 7;
+			} else if (strcmp(month, "Sep") == 0) {
+				time.tm_mon = 8;
+			} else if (strcmp(month, "Oct") == 0) {
+				time.tm_mon = 9;
+			} else if (strcmp(month, "Nov") == 0) {
+				time.tm_mon = 10;
+			} else if (strcmp(month, "Dec") == 0) {
+				time.tm_mon = 11;
 			}
 		#else
-			if (gmtime_r(&local_last_modified, &time) == NULL) {
-				return UNALIXERR_OS_GMTIME_FAILURE;
+			if (strptime(header->value, HTTP_DATE_FORMAT, &time) == NULL) {
+				return UNALIXERR_OS_STRPTIME_FAILURE;
 			}
 		#endif
 		
-		// Convert local time to UTC time
-		const time_t last_modified = mktime(&time);
+		const time_t remote_last_modified = mktime(&time);
 		
-		if (last_modified == -1) {
+		if (remote_last_modified == -1) {
 			return UNALIXERR_OS_MKTIME_FAILURE;
 		}
 		
-		char if_modified_since[HTTP_DATE_SIZE + 1];
-		const size_t size = strftime(if_modified_since, sizeof(if_modified_since), HTTP_DATE_FORMAT, &time);
-		
-		if (size != HTTP_DATE_SIZE) {
-			return UNALIXERR_OS_STRFTIME_FAILURE;
-		}
-		
-		int code = http_request_set_url(context, url);
-		
-		if (code != UNALIXERR_SUCCESS) {
-			return code;
-		}
-		
-		code = http_request_add_header(context, "User-Agent", HTTP_USER_AGENT);
-		
-		if (code != UNALIXERR_SUCCESS) {
-			return code;
-		}
-		
-		code = http_request_add_header(context, "Accept", "application/json");
-		
-		if (code != UNALIXERR_SUCCESS) {
-			return code;
-		}
-		
-		code = http_request_add_header(context, "If-Modified-Since", if_modified_since);
-		
-		if (code != UNALIXERR_SUCCESS) {
-			return code;
-		}
-		
-		code = http_request_send(context);
-		
-		if (code != UNALIXERR_SUCCESS) {
-			return code;
-		}
-		
-		const struct HTTPStatus* status = http_response_get_status(context);
-		
-		if (status->code == NOT_MODIFIED) {
+		// Compare local file's timestamp with remote file's timestamp
+		if (remote_last_modified <= last_modified) {
 			return UNALIXERR_RULESETS_NOT_MODIFIED;
-		}
-		
-		if (status->code != OK) {
-			return UNALIXERR_HTTP_BAD_STATUS_CODE;
-		}
-		
-		/*
-		Some server implementations ignores the "If-Modified-Since" header and always returns 200 OK, even if the remote file was not modified since the specified time.
-		But luckily, some of these servers still includes the "Last-Modified" header in the response, so we are able to manually compare both timestamps.
-		*/
-		const struct HTTPHeader* const header = http_response_get_header(context, "Last-Modified");
-		
-		if (header != NULL) {
-			struct tm time = {0};
-			
-			#ifdef _WIN32
-				char month[4];
-				
-				if (sscanf(header->value, "%*s, %d %s %d %d:%d:%d GMT", &time.tm_mday, month, &time.tm_year, &time.tm_hour, &time.tm_min, &time.tm_sec) != 6) {
-					return UNALIXERR_OS_STRPTIME_FAILURE;
-				}
-				
-				if (strcmp(month, "Jan") == 0) {
-					time.tm_mon = 0;
-				} else if (strcmp(month, "Feb") == 0) {
-					time.tm_mon = 1;
-				} else if (strcmp(month, "Mar") == 0) {
-					time.tm_mon = 2;
-				} else if (strcmp(month, "Apr") == 0) {
-					time.tm_mon = 3;
-				} else if (strcmp(month, "May") == 0) {
-					time.tm_mon = 4;
-				} else if (strcmp(month, "Jun") == 0) {
-					time.tm_mon = 5;
-				} else if (strcmp(month, "Jul") == 0) {
-					time.tm_mon = 6;
-				} else if (strcmp(month, "Aug") == 0) {
-					time.tm_mon = 7;
-				} else if (strcmp(month, "Sep") == 0) {
-					time.tm_mon = 8;
-				} else if (strcmp(month, "Oct") == 0) {
-					time.tm_mon = 9;
-				} else if (strcmp(month, "Nov") == 0) {
-					time.tm_mon = 10;
-				} else if (strcmp(month, "Dec") == 0) {
-					time.tm_mon = 11;
-				}
-			#else
-				if (strptime(header->value, HTTP_DATE_FORMAT, &time) == NULL) {
-					return UNALIXERR_OS_STRPTIME_FAILURE;
-				}
-			#endif
-			
-			const time_t remote_last_modified = mktime(&time);
-			
-			if (remote_last_modified == -1) {
-				return UNALIXERR_OS_MKTIME_FAILURE;
-			}
-			
-			// Compare local file's timestamp with remote file's timestamp
-			if (remote_last_modified <= last_modified) {
-				return UNALIXERR_RULESETS_NOT_MODIFIED;
-			}
 		}
 	}
 	
@@ -451,13 +453,13 @@ static int ruleset_update(const char* const filename, const char* const url, con
 		return code;
 	}
 	
-	code = http_request_add_header(context, "User-Agent", HTTP_USER_AGENT);
+	code = http_request_add_header(context, HTTP_HEADER_USER_AGENT, HTTP_DEFAULT_USER_AGENT);
 	
 	if (code != UNALIXERR_SUCCESS) {
 		return code;
 	}
 	
-	code = http_request_add_header(context, "Accept", "application/json");
+	code = http_request_add_header(context, HTTP_HEADER_ACCEPT, "application/json");
 	
 	if (code != UNALIXERR_SUCCESS) {
 		return code;
@@ -514,13 +516,13 @@ static int ruleset_update(const char* const filename, const char* const url, con
 			return code;
 		}
 		
-		code = http_request_add_header(context, "User-Agent", HTTP_USER_AGENT);
+		code = http_request_add_header(context, HTTP_HEADER_USER_AGENT, HTTP_DEFAULT_USER_AGENT);
 		
 		if (code != UNALIXERR_SUCCESS) {
 			return code;
 		}
 		
-		code = http_request_add_header(context, "Accept", "text/plain");
+		code = http_request_add_header(context, HTTP_HEADER_ACCEPT, "text/plain");
 		
 		if (code != UNALIXERR_SUCCESS) {
 			return code;
@@ -548,12 +550,12 @@ static int ruleset_update(const char* const filename, const char* const url, con
 		
 		const struct HTTPBody* body = http_response_get_body(context);
 		
-		if (body->size < SHA256_DIGEST_SIZE) {
+		if (body->size < (br_sha256_SIZE * 2)) {
 			return UNALIXERR_RULESETS_MISMATCH_HASH;
 		}
 		
-		char rsha256[SHA256_DIGEST_SIZE];
-		memcpy(rsha256, body->content, body->size);
+		char rsha256[br_sha256_SIZE * 2];
+		memcpy(rsha256, body->content, sizeof(rsha256));
 		
 		http_context_free(context);
 		
@@ -605,13 +607,17 @@ static int ruleset_update(const char* const filename, const char* const url, con
 
 int unalix_ruleset_check_update(const char* const filename, const char* const url) {
 	
+	if (filename == NULL || *filename == '\0' || url == NULL || *url == '\0') {
+		return UNALIXERR_ARG_INVALID;
+	}
+	
 	struct HTTPContext context = {
 		.request = {
 			.version = HTTP10,
 			.method = HEAD
 		},
 		.connection = {
-			.timeout = HTTP_TIMEOUT
+			.timeout = HTTP_DEFAULT_TIMEOUT
 		},
 	};
 	
@@ -625,13 +631,17 @@ int unalix_ruleset_check_update(const char* const filename, const char* const ur
 
 int unalix_ruleset_update(const char* const filename, const char* const url, const char* const sha256_url, const char* const temporary_directory) {
 	
+	if (filename == NULL || *filename == '\0' || url == NULL || *url == '\0' || temporary_directory == NULL || *temporary_directory == '\0') {
+		return UNALIXERR_ARG_INVALID;
+	}
+	
 	struct HTTPContext context = {
 		.request = {
 			.version = HTTP10,
 			.method = GET
 		},
 		.connection = {
-			.timeout = HTTP_TIMEOUT
+			.timeout = HTTP_DEFAULT_TIMEOUT
 		}
 	};
 	
@@ -644,10 +654,19 @@ int unalix_ruleset_update(const char* const filename, const char* const url, con
 }
 
 int unalix_load_file(const char* const filename) {
+	
+	if (filename == NULL || *filename == '\0') {
+		return UNALIXERR_ARG_INVALID;
+	}
+	
 	return load_file(filename, &rulesets);
 }
 
 int unalix_load_string(const char* const string) {
+	
+	if (string == NULL || *string == '\0') {
+		return UNALIXERR_ARG_INVALID;
+	}
 	
 	json_t* tree = json_loads(string, 0, NULL);
 	
@@ -670,6 +689,6 @@ void unalix_unload_rulesets(void) {
 /*
 int main() {
 	printf("%i\n", update_ruleset("/storage/emulated/0/z.json", "https://rules2.clearurls.xyz/data.minify.json", "https://rules2.clearurls.xyz/rules.minify.hash"));
-	puts(HTTP_USER_AGENT);
+	puts(HTTP_DEFAULT_USER_AGENT);
 }
 */

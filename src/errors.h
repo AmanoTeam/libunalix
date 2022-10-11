@@ -67,4 +67,6 @@
 #define UNALIXERR_OS_STRFTIME_FAILURE -55 /* Cannot format time object to string */
 #define UNALIXERR_OS_STRPTIME_FAILURE -56 /* Cannot parse string into time object */
 
+#define UNALIXERR_ARG_INVALID -57 /* Invalid argument passed to function call */
+
 const char* unalix_strerror(const int code);
